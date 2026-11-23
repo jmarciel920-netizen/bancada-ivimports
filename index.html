@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bancada · IVIMPORTS</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -227,7 +228,7 @@ tbody tr.click:hover{background:#fafaf7}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, runTransaction, serverTimestamp, Timestamp, increment, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, runTransaction, serverTimestamp, Timestamp, increment, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDS3wzf_Mpz6P2arzUH85e7MPl7I6YhPNQ",
@@ -239,6 +240,10 @@ const firebaseConfig = {
 };
 const LOJA = "ivimports";
 const ADMIN = "jmarciel920@gmail.com";
+const GOOGLE_CLIENT_ID = "1045242548865-6tvhn5n1d2nenm8mvndl6jp6r0knuvai.apps.googleusercontent.com";
+const PASTA_BACKUP = "Backup Bancada IVIMPORTS";
+const MANTER_BACKUPS = 30;
+const COLECOES = ["os","produtos","lancamentos","vendas"];
 
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
@@ -408,7 +413,7 @@ const VIEWS = {
     const ticket = ent30.length ? ent30.reduce((s,o) => s + (o.valor||0), 0) / ent30.length : 0;
     const baixo = S.produtos.filter(p => (p.qtd||0) <= (p.minimo||0));
     const cols = ["analise","aprovacao","reparo","pronto"];
-    return `<div class="kpis">
+    return `${backupPendente() ? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amarelo-claro);border-color:#ffe07a;padding:14px 18px"><span><b>Backup de hoje pendente.</b> <span class="muted">Último: ${S.loja?.backup?.ultimo ? fmtHora(S.loja.backup.ultimo) : "nunca"} · Google Drive ${esc(S.loja?.backup?.conta||"")}</span></span><button class="btn btn-dark btn-sm" data-a="backup-drive">Fazer backup agora</button></div>` : ""}<div class="kpis">
       <div class="card kpi"><span class="muted">OS abertas</span><div class="v">${abertas.length}</div><span class="tag t-amarela">${vencem} vencem hoje</span></div>
       <div class="card kpi"><span class="muted">Prontas p/ retirada</span><div class="v">${prontas.length}</div><span class="tag t-neutra">avise pelo WhatsApp</span></div>
       <div class="card kpi"><span class="muted">Entradas hoje</span><div class="v">${brl(entradasHoje).replace(",00","")}</div><span class="tag t-neutra">caixa do dia</span></div>
@@ -518,6 +523,12 @@ const VIEWS = {
           <label class="f">Garantia padrão (texto no aviso de retirada)<input class="input" id="lj-gar" value="${esc(S.loja?.garantia || "90 dias de garantia no serviço")}"></label>
           <div><button class="btn btn-dark">Salvar</button></div>
         </form>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px;grid-column:1/-1"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h3 style="font-size:20px">Backup no Google Drive</h3>${S.loja?.backup?.conta ? `<span class="tag t-verde">Conectado · ${esc(S.loja.backup.conta)}</span>` : `<span class="tag t-amarela">Não conectado</span>`}</div>
+        <p class="muted" style="margin:0;font-size:14px">Salva uma cópia de tudo (OS, estoque, vendas e lançamentos) na pasta <b>${PASTA_BACKUP}</b> do Google Drive da loja. Uma vez por dia o painel lembra de fazer o backup. Guarda os últimos ${MANTER_BACKUPS}. O sistema só enxerga os arquivos que ele mesmo criou no Drive.</p>
+        <span style="font-size:14px">Último backup: <b>${S.loja?.backup?.ultimo ? fmtHora(S.loja.backup.ultimo) : "nunca"}</b></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="backup-drive">${S.loja?.backup?.conta ? "Fazer backup agora" : "Conectar Google Drive e fazer backup"}</button>${S.loja?.backup?.conta ? `<button class="btn" data-a="listar-backups">Ver backups / restaurar</button>` : ""}<button class="btn btn-ghost" data-a="backup-local">Baixar cópia no computador</button><label class="btn btn-ghost" style="cursor:pointer">Restaurar de arquivo<input type="file" accept=".json,application/json" id="arquivo-restaurar" hidden></label></div>
+        <div id="lista-backups"></div>
       </div>
       ${isAdmin() ? `<div class="card" style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:20px">Demonstração</h3><p class="muted" style="margin:0;font-size:14px">Carrega OS, produtos e lançamentos fictícios para mostrar o sistema. Dá para apagar depois.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="exemplo">Carregar dados de exemplo</button><button class="btn btn-danger" data-a="limpar-exemplo">Apagar dados de exemplo</button></div></div>` : ""}
     </div>`;
@@ -647,6 +658,10 @@ document.addEventListener("click", async e => {
       case "del-lanc": if(confirmar("Excluir este lançamento?")){ await deleteDoc(doc(col("lancamentos"), t.dataset.id)); toast("Lançamento excluído"); } break;
       case "rm-membro": if(confirmar(`Remover ${t.dataset.e} da equipe?`)){ await updateDoc(lojaRef, { equipe: (S.loja.equipe||[]).filter(x => x !== t.dataset.e) }); toast("Removido"); } break;
       case "exemplo": await carregarExemplo(); break;
+      case "backup-drive": await backupDrive(t); break;
+      case "listar-backups": await listarBackups(); break;
+      case "restaurar-drive": await restaurarDrive(t.dataset.id, t.dataset.n); break;
+      case "backup-local": await backupLocal(); break;
       case "limpar-exemplo": await limparExemplo(); break;
     }
   } catch(err){ console.error(err); toast(traduz(err)); }
@@ -734,6 +749,114 @@ function imprimirOS(o){
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
+
+/* ---------- backup ---------- */
+function backupPendente(){
+  const u = toDate(S.loja?.backup?.ultimo);
+  return !u || (Date.now() - u.getTime()) > 20*3600e3;
+}
+const serial = v => v instanceof Timestamp ? {__ts: v.toMillis()} : Array.isArray(v) ? v.map(serial) : (v && typeof v === "object") ? Object.fromEntries(Object.entries(v).map(([k,x]) => [k, serial(x)])) : v;
+const desserial = v => (v && typeof v === "object" && !Array.isArray(v) && "__ts" in v && Object.keys(v).length === 1) ? Timestamp.fromMillis(v.__ts) : Array.isArray(v) ? v.map(desserial) : (v && typeof v === "object") ? Object.fromEntries(Object.entries(v).map(([k,x]) => [k, desserial(x)])) : v;
+async function montarBackup(){
+  const dados = {};
+  for(const c of COLECOES){ const snap = await getDocs(col(c)); dados[c] = snap.docs.map(d => ({ _id:d.id, ...serial(d.data()) })); }
+  return { sistema:"Bancada", loja:LOJA, versao:1, geradoEm:new Date().toISOString(), geradoPor:S.user.email, proximaOS:S.loja?.proximaOS || 1, dados };
+}
+const nomeArquivo = () => "bancada-ivimports-" + new Date().toISOString().slice(0,16).replace("T","_").replace(":","h") + ".json";
+
+let tokenGoogle = null, tokenExpira = 0;
+function pedirToken(){
+  return new Promise((ok, falha) => {
+    if(tokenGoogle && Date.now() < tokenExpira) return ok(tokenGoogle);
+    if(!window.google?.accounts?.oauth2) return falha(new Error("O Google ainda está carregando. Tente de novo em alguns segundos."));
+    const cli = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
+      login_hint: S.loja?.backup?.conta || "",
+      callback: r => { if(r.error) return falha(new Error("Autorização do Google não concedida.")); tokenGoogle = r.access_token; tokenExpira = Date.now() + (r.expires_in - 60)*1000; ok(tokenGoogle); },
+      error_callback: e => falha(new Error(e?.type === "popup_closed" ? "Janela do Google fechada antes de autorizar." : "Não foi possível abrir a janela do Google (libere pop-ups para este site)."))
+    });
+    cli.requestAccessToken({ prompt: S.loja?.backup?.conta ? "" : "consent" });
+  });
+}
+async function gapi(token, url, opt = {}){
+  const r = await fetch(url, { ...opt, headers: { Authorization: "Bearer " + token, ...(opt.headers||{}) } });
+  if(!r.ok){ const t = await r.text(); throw new Error("Google Drive respondeu " + r.status + ": " + t.slice(0,160)); }
+  return r.status === 204 ? null : (opt.raw ? r : r.json());
+}
+async function pastaBackup(token){
+  const q = encodeURIComponent(`name='${PASTA_BACKUP}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const l = await gapi(token, `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`);
+  if(l.files?.length) return l.files[0].id;
+  const p = await gapi(token, "https://www.googleapis.com/drive/v3/files?fields=id", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ name:PASTA_BACKUP, mimeType:"application/vnd.google-apps.folder" }) });
+  return p.id;
+}
+async function backupDrive(btn){
+  if(btn) btn.disabled = true;
+  try {
+    const token = await pedirToken();
+    toast("Gerando backup…");
+    const [info, pasta, conteudo] = await Promise.all([
+      gapi(token, "https://www.googleapis.com/oauth2/v3/userinfo"), pastaBackup(token), montarBackup()
+    ]);
+    const corpo = JSON.stringify(conteudo);
+    const fronteira = "bancada" + Math.random().toString(36).slice(2);
+    const multipart = `--${fronteira}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` + JSON.stringify({ name:nomeArquivo(), parents:[pasta], mimeType:"application/json" }) + `\r\n--${fronteira}\r\nContent-Type: application/json\r\n\r\n` + corpo + `\r\n--${fronteira}--`;
+    await gapi(token, "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", { method:"POST", headers:{"Content-Type":`multipart/related; boundary=${fronteira}`}, body: multipart });
+    // mantém só os últimos N
+    const q = encodeURIComponent(`'${pasta}' in parents and trashed=false`);
+    const l = await gapi(token, `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&fields=files(id)&pageSize=200`);
+    for(const f of (l.files||[]).slice(MANTER_BACKUPS)) await gapi(token, `https://www.googleapis.com/drive/v3/files/${f.id}`, { method:"DELETE" });
+    await updateDoc(lojaRef, { backup: { conta: info.email || "", ultimo: serverTimestamp(), por: S.user.email, tamanhoKB: Math.round(corpo.length/1024) } });
+    toast("Backup salvo no Google Drive ✓");
+  } catch(err){ console.error(err); toast(err.message || traduz(err)); }
+  if(btn) btn.disabled = false;
+}
+async function listarBackups(){
+  const box = $("#lista-backups"); box.innerHTML = `<span class="muted" style="font-size:14px">Buscando backups no Drive…</span>`;
+  try {
+    const token = await pedirToken(); const pasta = await pastaBackup(token);
+    const q = encodeURIComponent(`'${pasta}' in parents and trashed=false`);
+    const l = await gapi(token, `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&fields=files(id,name,createdTime,size)&pageSize=50`);
+    box.innerHTML = (l.files||[]).length ? `<table><thead><tr><th>Backup</th><th class="num">Tamanho</th><th></th></tr></thead><tbody>${l.files.map(f => `<tr><td>${new Date(f.createdTime).toLocaleString("pt-BR")}</td><td class="num">${Math.max(1,Math.round((f.size||0)/1024))} KB</td><td class="num"><button class="btn btn-sm" data-a="restaurar-drive" data-id="${f.id}" data-n="${esc(new Date(f.createdTime).toLocaleString("pt-BR"))}">Restaurar</button></td></tr>`).join("")}</tbody></table>` : `<span class="muted" style="font-size:14px">Nenhum backup na pasta ainda.</span>`;
+  } catch(err){ box.innerHTML = ""; toast(err.message || traduz(err)); }
+}
+async function restaurarDrive(id, quando){
+  if(!confirmar(`Restaurar o backup de ${quando}?\n\nTodos os dados atuais (OS, estoque, vendas e lançamentos) serão SUBSTITUÍDOS pelos do backup. Antes disso, um backup do estado atual é salvo no Drive.`)) return;
+  const token = await pedirToken();
+  await backupDrive();
+  const r = await gapi(token, `https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { raw:true });
+  await aplicarRestauracao(await r.json());
+}
+async function backupLocal(){
+  const conteudo = await montarBackup();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(conteudo, null, 1)], {type:"application/json"}));
+  a.download = nomeArquivo(); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast("Cópia baixada no computador");
+}
+async function aplicarRestauracao(b){
+  if(b?.sistema !== "Bancada" || !b.dados) throw new Error("Arquivo não é um backup do Bancada.");
+  toast("Restaurando…");
+  const ops = [];
+  for(const c of COLECOES){
+    const atuais = await getDocs(col(c));
+    const ids = new Set((b.dados[c]||[]).map(d => d._id));
+    atuais.docs.forEach(d => { if(!ids.has(d.id)) ops.push(["del", c, d.id]); });
+    (b.dados[c]||[]).forEach(({_id, ...d}) => ops.push(["set", c, _id, desserial(d)]));
+  }
+  for(let i=0;i<ops.length;i+=400){ const bt = writeBatch(db); ops.slice(i,i+400).forEach(([o,c,id,d]) => o==="del" ? bt.delete(doc(col(c), id)) : bt.set(doc(col(c), id), d)); await bt.commit(); }
+  await updateDoc(lojaRef, { proximaOS: Math.max(b.proximaOS||1, ...(b.dados.os||[]).map(o => (o.numero||0)+1)) });
+  toast(`Backup restaurado (${ops.length} registros) ✓`);
+}
+document.addEventListener("change", async e => {
+  if(e.target.id !== "arquivo-restaurar" || !e.target.files[0]) return;
+  try {
+    const b = JSON.parse(await e.target.files[0].text());
+    if(confirmar(`Restaurar o arquivo de backup gerado em ${b.geradoEm ? new Date(b.geradoEm).toLocaleString("pt-BR") : "?"}?\n\nTodos os dados atuais serão SUBSTITUÍDOS.`)) await aplicarRestauracao(b);
+  } catch(err){ toast(err.message || traduz(err)); }
+  e.target.value = "";
+});
 
 /* ---------- dados de exemplo (demonstração) ---------- */
 async function carregarExemplo(){
