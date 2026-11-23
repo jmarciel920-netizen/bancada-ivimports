@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bancada · IVIMPORTS</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --amarelo:#ffc400; --amarelo-esc:#e6ad00; --amarelo-claro:#fff7d9; --ouro:#8a6700;
+  --preto:#111111; --preto-2:#1c1c1c; --texto:#141414; --cinza:#6b6b67; --cinza-2:#9a9a95;
+  --fundo:#f6f6f3; --superficie:#f1f1ed; --branco:#fff; --linha:#e6e6e1;
+  --verde:#1f8a4c; --verde-claro:#e5f5ec; --vermelho:#c0392b; --vermelho-claro:#fdecea;
+  --sombra:0 1px 2px rgba(0,0,0,.04),0 10px 28px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Barlow,system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--texto);background:var(--fundo)}
+h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+button,input,select,textarea{font:inherit}
+.hide{display:none!important}
+.muted{color:var(--cinza)}
+.kicker{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--ouro)}
+
+/* botões */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--linha);background:var(--branco);color:var(--texto);border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--superficie)}
+.btn-primary{background:var(--amarelo);border-color:var(--amarelo);color:#111}
+.btn-primary:hover{background:var(--amarelo-esc)}
+.btn-dark{background:var(--preto);border-color:var(--preto);color:#fff}
+.btn-dark:hover{background:#2b2b2b}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--ouro)}
+.btn-ghost:hover{background:var(--amarelo-claro)}
+.btn-danger{color:var(--vermelho)}
+.btn-sm{padding:6px 12px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* forms */
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--cinza)}
+.input{width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--linha);border-radius:10px;background:var(--branco);color:var(--texto);font-size:14px}
+.input:focus{outline:2px solid var(--amarelo);outline-offset:0;border-color:var(--amarelo)}
+textarea.input{min-height:84px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.span2{grid-column:1/-1}
+
+/* cards */
+.card{background:var(--branco);border:1px solid var(--linha);border-radius:16px;box-shadow:var(--sombra);padding:20px}
+.tag{display:inline-flex;align-items:center;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:500;white-space:nowrap}
+.t-neutra{background:var(--superficie);color:#424244}
+.t-amarela{background:var(--amarelo-claro);color:var(--ouro)}
+.t-preta{background:var(--preto);color:#fff}
+.t-verde{background:var(--verde-claro);color:var(--verde)}
+.t-vermelha{background:var(--vermelho-claro);color:var(--vermelho)}
+
+/* login */
+#login{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr}
+#login .lado{background:var(--preto);color:#fff;padding:56px;display:flex;flex-direction:column;justify-content:space-between}
+#login .lado h1{font-size:52px;max-width:520px}
+#login .lado h1 em{font-style:normal;color:var(--amarelo)}
+#login .form{display:flex;align-items:center;justify-content:center;padding:32px}
+#login .box{width:min(400px,100%);display:flex;flex-direction:column;gap:14px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo .sq{width:34px;height:34px;border-radius:9px;background:var(--amarelo);color:#111;display:grid;place-items:center;font-weight:700}
+.msg{font-size:13px;padding:10px 12px;border-radius:10px}
+.msg.err{background:var(--vermelho-claro);color:var(--vermelho)}
+.msg.ok{background:var(--verde-claro);color:var(--verde)}
+.msg.info{background:var(--amarelo-claro);color:var(--ouro)}
+
+/* layout app */
+#app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
+aside.side{background:var(--preto);color:#fff;display:flex;flex-direction:column;gap:20px;padding:22px 14px;position:sticky;top:0;height:100vh}
+.side nav{display:flex;flex-direction:column;gap:2px}
+.side .sec{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cinza-2);padding:0 10px 6px}
+.side nav button{display:grid;grid-template-columns:18px 1fr auto;gap:12px;align-items:center;text-align:left;border:0;border-radius:10px;cursor:pointer;font-size:14px;padding:9px 10px;background:transparent;color:#fff}
+.side nav button:hover{background:rgba(255,255,255,.07)}
+.side nav button.on{background:rgba(255,196,0,.2)}
+.side nav button .b{font-size:12px;color:var(--amarelo)}
+.side .loja{margin-top:auto;border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+main{min-width:0;display:flex;flex-direction:column}
+header.top{display:flex;align-items:center;gap:14px;padding:14px 32px;background:var(--branco);box-shadow:0 1px 0 var(--linha);position:sticky;top:0;z-index:5}
+.busca{display:flex;align-items:center;gap:8px;flex:1;max-width:440px;background:var(--fundo);border:1px solid var(--linha);border-radius:10px;padding:8px 12px}
+.busca input{border:0;background:transparent;outline:none;flex:1;font-size:14px}
+.conteudo{padding:28px 32px 56px;display:flex;flex-direction:column;gap:24px}
+.titulo{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.titulo h1{font-size:40px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
+.kpi .v{font-size:36px;font-weight:700;line-height:1.05;margin:6px 0 10px;white-space:nowrap}
+.dois{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+.dois>.a{flex:3 1 560px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.dois>.b{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.quadro{display:grid;gap:12px;overflow-x:auto;padding-bottom:6px}
+.col{background:var(--superficie);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:220px}
+.col .h{display:flex;justify-content:space-between;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cinza)}
+.os-card{border:1px solid var(--linha);background:var(--branco);border-radius:12px;text-align:left;cursor:pointer;padding:12px;display:flex;flex-direction:column;gap:4px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.os-card:hover{border-color:var(--amarelo)}
+.os-card .m{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--cinza)}
+.os-card b{font-size:16px}
+.lista-linha{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--linha);padding-top:10px;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cinza);padding:10px 8px;border-bottom:1px solid var(--linha);font-weight:600}
+td{padding:10px 8px;border-bottom:1px solid #efefeb;vertical-align:middle}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover{background:#fafaf7}
+.num{text-align:right;white-space:nowrap}
+.filtros{display:flex;gap:8px;flex-wrap:wrap}
+.pill{border:1px solid var(--linha);background:var(--branco);border-radius:999px;padding:6px 13px;cursor:pointer;font-size:13px}
+.pill.on{background:var(--preto);border-color:var(--preto);color:#fff}
+.seg{display:flex;border:1px solid var(--linha);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{border:0;background:transparent;padding:8px 16px;cursor:pointer;font-size:13px}
+.seg button.on{background:var(--preto);color:#fff}
+.vazio{padding:28px;text-align:center;color:var(--cinza);font-size:14px}
+
+/* gaveta & modal */
+.backdrop{position:fixed;inset:0;background:rgba(17,17,17,.45);z-index:20}
+.gaveta{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:#fff;z-index:21;overflow-y:auto;box-shadow:-20px 0 40px rgba(0,0,0,.15);display:flex;flex-direction:column}
+.gaveta .cab{padding:22px 26px;border-bottom:1px solid var(--linha);display:flex;justify-content:space-between;gap:12px}
+.gaveta .corpo{padding:22px 26px;display:flex;flex-direction:column;gap:22px}
+.infos{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--linha);border:1px solid var(--linha);border-radius:12px;overflow:hidden}
+.infos div{background:#fff;padding:11px 12px;display:flex;flex-direction:column;gap:2px;font-size:14px}
+.infos span{font-size:12px;color:var(--cinza)}
+.passo{display:grid;grid-template-columns:14px 1fr auto;gap:14px}
+.passo .d{display:flex;flex-direction:column;align-items:center}
+.passo .d i{width:12px;height:12px;border-radius:50%;border:2px solid var(--amarelo);margin-top:4px}
+.passo .d i.on{background:var(--amarelo)}
+.passo .d s{flex:1;width:2px;min-height:20px;background:var(--linha);text-decoration:none}
+.modal-wrap{position:fixed;inset:0;display:grid;place-items:center;padding:16px;z-index:30;background:rgba(17,17,17,.45)}
+.modal{width:min(560px,100%);max-height:92vh;overflow-y:auto;background:#fff;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.acoes{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--preto);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:40;box-shadow:var(--sombra)}
+
+/* PDV */
+.pdv{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+.prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.prod{border:1px solid var(--linha);background:#fff;border-radius:14px;text-align:left;cursor:pointer;padding:14px;display:flex;flex-direction:column;gap:6px;min-height:124px}
+.prod:hover{border-color:var(--amarelo)}
+.prod .p{font-size:22px;font-weight:700;margin-top:auto}
+.carrinho{position:sticky;top:90px}
+.barras{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;align-items:end;height:240px;border-bottom:1px solid var(--linha)}
+.barras>div{display:flex;flex-direction:column;justify-content:flex-end;gap:6px;height:100%;font-size:12px;text-align:center}
+.barras i{display:block;border-radius:8px 8px 0 0;background:#c9c9c4}
+.barras i.on{background:var(--amarelo)}
+.trilho{height:6px;border-radius:99px;background:var(--superficie);overflow:hidden}
+.trilho i{display:block;height:100%;background:var(--preto)}
+
+.menu-mob{display:none}
+@media (max-width:900px){
+  #login{grid-template-columns:1fr}
+  #login .lado{padding:32px}
+  #login .lado h1{font-size:36px}
+  #app{grid-template-columns:1fr}
+  aside.side{position:fixed;inset:0 auto 0 0;width:260px;z-index:25;transform:translateX(-100%);transition:transform .2s}
+  aside.side.aberta{transform:none}
+  .menu-mob{display:inline-flex}
+  header.top{padding:12px 16px}
+  .conteudo{padding:20px 16px 48px}
+  .titulo h1{font-size:30px}
+  .pdv{grid-template-columns:1fr}
+  .grid2{grid-template-columns:1fr}
+  .hide-mob{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="login" class="hide">
+  <div class="lado">
+    <div class="logo"><span class="sq">IV</span><div><b style="font-size:18px;letter-spacing:.06em">IVIMPORTS</b><div style="font-size:12px;color:var(--cinza-2)">sistema <b style="color:var(--amarelo)">Bancada</b></div></div></div>
+    <h1>Do balcão à entrega, cada aparelho <em>em ordem.</em></h1>
+    <p style="color:var(--cinza-2);max-width:460px;margin:0">Ordens de serviço, PDV, estoque e financeiro da loja num só lugar. Versão de teste.</p>
+  </div>
+  <div class="form">
+    <form class="box" id="form-login" autocomplete="on">
+      <div><div class="kicker" id="login-kicker">Acesso da equipe</div><h2 style="font-size:30px;margin-top:4px" id="login-titulo">Entrar</h2></div>
+      <div id="login-msg"></div>
+      <label class="f">E-mail<input class="input" type="email" id="l-email" required autocomplete="email"></label>
+      <label class="f" id="l-senha-wrap">Senha<input class="input" type="password" id="l-senha" minlength="6" autocomplete="current-password"></label>
+      <button class="btn btn-primary" type="submit" id="l-botao" style="padding:12px">Entrar</button>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <a href="#" id="l-troca" style="color:var(--texto)">Primeiro acesso? Criar senha</a>
+        <a href="#" id="l-esqueci" style="color:var(--cinza)">Esqueci a senha</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ============ AGUARDANDO / SEM ACESSO ============ -->
+<section id="bloqueio" class="hide" style="min-height:100vh;display:grid;place-items:center;padding:24px">
+  <div class="card" style="max-width:460px;display:flex;flex-direction:column;gap:14px">
+    <div class="logo"><span class="sq">IV</span><b>IVIMPORTS · Bancada</b></div>
+    <h2 id="bloq-titulo">Verifique seu e-mail</h2>
+    <p class="muted" id="bloq-texto" style="margin:0"></p>
+    <div class="acoes" style="justify-content:flex-start">
+      <button class="btn btn-primary" id="bloq-acao">Já verifiquei</button>
+      <button class="btn" id="bloq-reenviar">Reenviar e-mail</button>
+      <button class="btn btn-ghost" data-a="sair">Sair</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hide">
+  <aside class="side" id="side">
+    <div class="logo" style="padding:0 6px"><span class="sq">IV</span><div><b style="letter-spacing:.06em">IVIMPORTS</b><div style="font-size:11px;color:var(--cinza-2)">sistema <b style="color:var(--amarelo)">Bancada</b></div></div></div>
+    <nav id="nav"></nav>
+    <div class="loja">
+      <span class="sec" style="padding:0">Loja</span>
+      <b id="loja-nome">IVIMPORTS</b>
+      <span style="color:var(--cinza-2);margin-top:-6px" id="loja-end">Av. Brasil · Ivinhema/MS</span>
+      <span style="color:var(--cinza-2);font-size:12px;word-break:break-all" id="user-email"></span>
+      <button class="btn btn-sm" data-a="sair" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.2)">Sair</button>
+    </div>
+  </aside>
+  <main>
+    <header class="top">
+      <button class="btn btn-sm menu-mob" data-a="menu">☰</button>
+      <div class="busca"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="busca" placeholder="Buscar OS, cliente, IMEI ou peça"></div>
+      <span class="muted hide-mob" style="margin-left:auto;font-size:13px" id="hoje"></span>
+      <button class="btn btn-primary" data-a="nova-os">+ Nova OS</button>
+    </header>
+    <div class="conteudo" id="view"></div>
+  </main>
+</div>
+<div id="camada"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, runTransaction, serverTimestamp, Timestamp, increment, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDS3wzf_Mpz6P2arzUH85e7MPl7I6YhPNQ",
+  authDomain: "bancada-ivimports.firebaseapp.com",
+  projectId: "bancada-ivimports",
+  storageBucket: "bancada-ivimports.firebasestorage.app",
+  messagingSenderId: "1045242548865",
+  appId: "1:1045242548865:web:7fb5ced5a0ba65a1f5f380"
+};
+const LOJA = "ivimports";
+const ADMIN = "jmarciel920@gmail.com";
+const GOOGLE_CLIENT_ID = "1045242548865-6tvhn5n1d2nenm8mvndl6jp6r0knuvai.apps.googleusercontent.com";
+const PASTA_BACKUP = "Backup Bancada IVIMPORTS";
+const MANTER_BACKUPS = 30;
+const COLECOES = ["os","produtos","lancamentos","vendas"];
+
+const fb = initializeApp(firebaseConfig);
+const auth = getAuth(fb);
+auth.languageCode = "pt";
+await setPersistence(auth, browserLocalPersistence);
+const db = getFirestore(fb);
+const lojaRef = doc(db, "lojas", LOJA);
+const col = n => collection(db, "lojas", LOJA, n);
+
+/* ---------- utilidades ---------- */
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const brl = v => "R$ " + Number(v || 0).toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2});
+const num = v => { let t = String(v ?? "").trim().replace(/[^\d,.-]/g, ""); if(t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); const n = parseFloat(t); return isNaN(n) ? 0 : n; };
+const toDate = t => t instanceof Timestamp ? t.toDate() : (t ? new Date(t) : null);
+const fmtData = t => { const d = toDate(t); return d ? d.toLocaleDateString("pt-BR", {day:"2-digit", month:"2-digit"}) : "—"; };
+const fmtHora = t => { const d = toDate(t); return d ? d.toLocaleString("pt-BR", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"}) : ""; };
+const mesmoDia = (a, b) => a && b && a.toDateString() === b.toDateString();
+const soDigitos = s => String(s || "").replace(/\D/g, "");
+function toast(t){ const el = document.createElement("div"); el.className = "toast"; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
+
+const STATUS = ["recebido","analise","aprovacao","reparo","pronto","entregue"];
+const SL = {recebido:"Recebido", analise:"Em análise", aprovacao:"Aguard. aprovação", reparo:"Em reparo", pronto:"Pronto", entregue:"Entregue"};
+const STAG = {recebido:"t-neutra", analise:"t-neutra", aprovacao:"t-amarela", reparo:"t-preta", pronto:"t-verde", entregue:"t-neutra"};
+const ICON = {
+  painel:"M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
+  os:"M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1zM6 6h12v15H6zM9 11h6M9 15h4",
+  pdv:"M4 5h16v10H4zM8 19h8M12 15v4",
+  estoque:"M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10",
+  clientes:"M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8",
+  financeiro:"M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+  relatorios:"M4 20V10M10 20V4M16 20v-7M22 20H2",
+  config:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
+};
+const NAV = [
+  ["painel","Painel","Visão geral"], ["os","Ordens de serviço","Bancada"], ["pdv","PDV / Venda","Balcão"],
+  ["estoque","Estoque","Peças e acessórios"], ["clientes","Clientes","Cadastro"], ["financeiro","Financeiro","Caixa e contas"],
+  ["relatorios","Relatórios","Desempenho"], ["config","Configurações","Loja e equipe"]
+];
+
+/* ---------- estado ---------- */
+const S = { user:null, loja:null, os:[], produtos:[], lanc:[], view:"painel", modoOS:"lista", filtro:"abertas", sel:null, cart:[], busca:"", unsub:[] };
+const isAdmin = () => S.user && S.user.email && S.user.email.toLowerCase() === ADMIN;
+
+/* ---------- LOGIN ---------- */
+let modoCadastro = false;
+function telaLogin(){
+  $("#login").classList.remove("hide"); $("#app").classList.add("hide"); $("#bloqueio").classList.add("hide");
+}
+function msgLogin(t, tipo="err"){ $("#login-msg").innerHTML = t ? `<div class="msg ${tipo}">${t}</div>` : ""; }
+function trocaModo(cad){
+  modoCadastro = cad;
+  $("#login-titulo").textContent = cad ? "Criar sua senha" : "Entrar";
+  $("#l-botao").textContent = cad ? "Criar acesso" : "Entrar";
+  $("#l-troca").textContent = cad ? "Já tenho senha — entrar" : "Primeiro acesso? Criar senha";
+  $("#l-senha").autocomplete = cad ? "new-password" : "current-password";
+  msgLogin(cad ? "Use o e-mail que o administrador liberou. Depois confirme pelo link enviado ao seu e-mail." : "", "info");
+}
+$("#l-troca").onclick = e => { e.preventDefault(); trocaModo(!modoCadastro); };
+$("#l-esqueci").onclick = async e => {
+  e.preventDefault();
+  const email = $("#l-email").value.trim();
+  if(!email){ msgLogin("Digite seu e-mail acima e clique de novo em “Esqueci a senha”."); return; }
+  try { await sendPasswordResetEmail(auth, email); msgLogin("Se esse e-mail tiver acesso, enviamos um link para criar nova senha.", "ok"); }
+  catch(err){ msgLogin(traduz(err)); }
+};
+$("#form-login").onsubmit = async e => {
+  e.preventDefault();
+  const email = $("#l-email").value.trim(), senha = $("#l-senha").value;
+  if(senha.length < 6){ msgLogin("A senha precisa ter pelo menos 6 caracteres."); return; }
+  $("#l-botao").disabled = true;
+  try {
+    if(modoCadastro){
+      const cred = await createUserWithEmailAndPassword(auth, email, senha);
+      await sendEmailVerification(cred.user);
+    } else {
+      await signInWithEmailAndPassword(auth, email, senha);
+    }
+  } catch(err){ msgLogin(traduz(err)); }
+  $("#l-botao").disabled = false;
+};
+function traduz(err){
+  const c = err && err.code || "";
+  if(c.includes("invalid-credential") || c.includes("wrong-password") || c.includes("user-not-found")) return "E-mail ou senha incorretos.";
+  if(c.includes("email-already-in-use")) return "Esse e-mail já tem acesso. Use “Entrar” ou “Esqueci a senha”.";
+  if(c.includes("invalid-email")) return "E-mail inválido.";
+  if(c.includes("weak-password")) return "Senha fraca: use pelo menos 6 caracteres.";
+  if(c.includes("too-many-requests")) return "Muitas tentativas. Aguarde alguns minutos.";
+  if(c.includes("permission-denied")) return "Sem permissão para essa ação.";
+  if(c.includes("network")) return "Sem conexão com a internet.";
+  return "Algo deu errado (" + esc(c || err.message) + ").";
+}
+
+function telaBloqueio(titulo, texto, verif){
+  $("#login").classList.add("hide"); $("#app").classList.add("hide"); $("#bloqueio").classList.remove("hide");
+  $("#bloq-titulo").textContent = titulo; $("#bloq-texto").innerHTML = texto;
+  $("#bloq-reenviar").classList.toggle("hide", !verif);
+  $("#bloq-acao").textContent = verif ? "Já confirmei" : "Tentar de novo";
+}
+$("#bloq-acao").onclick = async () => { if(auth.currentUser){ await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); iniciar(auth.currentUser); } };
+$("#bloq-reenviar").onclick = async () => { try { await sendEmailVerification(auth.currentUser); toast("E-mail reenviado"); } catch(err){ toast(traduz(err)); } };
+
+onAuthStateChanged(auth, u => { pararEscuta(); if(!u){ S.user = null; trocaModo(false); telaLogin(); return; } iniciar(u); });
+
+async function iniciar(u){
+  S.user = u;
+  if(!u.emailVerified){
+    telaBloqueio("Confirme seu e-mail", `Enviamos um link para <b>${esc(u.email)}</b>. Abra o e-mail (veja também o spam), clique no link e depois volte aqui.`, true);
+    return;
+  }
+  try {
+    let snap = await getDoc(lojaRef);
+    if(!snap.exists() && isAdmin()){
+      await setDoc(lojaRef, { nome:"IVIMPORTS", endereco:"Av. Brasil · Ivinhema/MS", equipe:[ADMIN], proximaOS:1, criadoEm:serverTimestamp() });
+      snap = await getDoc(lojaRef);
+    }
+    if(!snap.exists()) throw {code:"permission-denied"};
+    S.loja = snap.data();
+  } catch(err){
+    telaBloqueio("Acesso ainda não liberado", `O e-mail <b>${esc(u.email)}</b> não está na equipe da loja. Peça ao administrador para incluir você em Configurações → Equipe.`, false);
+    return;
+  }
+  $("#login").classList.add("hide"); $("#bloqueio").classList.add("hide"); $("#app").classList.remove("hide");
+  $("#user-email").textContent = u.email;
+  escutar();
+  render();
+}
+
+/* ---------- dados em tempo real ---------- */
+function pararEscuta(){ S.unsub.forEach(f => f()); S.unsub = []; }
+function escutar(){
+  pararEscuta();
+  const erro = e => { console.error(e); toast(traduz(e)); };
+  S.unsub.push(onSnapshot(lojaRef, s => { S.loja = s.data() || S.loja; $("#loja-nome").textContent = S.loja.nome || "IVIMPORTS"; $("#loja-end").textContent = S.loja.endereco || ""; if(S.view === "config") render(); }, erro));
+  S.unsub.push(onSnapshot(col("os"), s => { S.os = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (b.numero||0) - (a.numero||0)); render(); }, erro));
+  S.unsub.push(onSnapshot(col("produtos"), s => { S.produtos = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => String(a.nome).localeCompare(b.nome)); render(); }, erro));
+  S.unsub.push(onSnapshot(col("lancamentos"), s => { S.lanc = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (toDate(b.data)||0) - (toDate(a.data)||0)); render(); }, erro));
+}
+
+/* ---------- render ---------- */
+function render(){
+  if($("#app").classList.contains("hide")) return;
+  $("#hoje").textContent = new Date().toLocaleDateString("pt-BR", {weekday:"short", day:"2-digit", month:"short"}).replace(".", "");
+  const abertas = S.os.filter(o => o.status !== "entregue").length;
+  $("#nav").innerHTML = `<span class="sec">Operação</span>` + NAV.filter(([k]) => k !== "config" || true).map(([k,l]) =>
+    `<button class="${S.view===k?"on":""}" data-a="ir" data-v="${k}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${ICON[k]}"/></svg><span>${l}</span><span class="b">${k==="os" && abertas ? abertas : ""}</span></button>`).join("");
+  const v = VIEWS[S.view] || VIEWS.painel;
+  const nv = NAV.find(n => n[0] === S.view) || NAV[0];
+  $("#view").innerHTML = `<div class="titulo"><div><div class="kicker">${nv[2]}</div><h1>${nv[1]}</h1></div>${v.acoes ? v.acoes() : ""}</div>` + v.html();
+  renderCamada();
+}
+
+function filtraBusca(lista, campos){
+  const q = S.busca.trim().toLowerCase(); if(!q) return lista;
+  return lista.filter(o => campos.some(c => String(o[c] ?? "").toLowerCase().includes(q)));
+}
+const osCard = o => `<button class="os-card" data-a="abrir-os" data-id="${o.id}"><div class="m"><span>#${String(o.numero).padStart(4,"0")}</span><span>${esc(o.prazo ? fmtData(o.prazo) : "")}</span></div><b>${esc(o.aparelho)}</b><span style="font-size:13px;color:var(--cinza)">${esc(o.cliente)}</span></button>`;
+
+const VIEWS = {
+  painel: { html(){
+    const hoje = new Date(), d30 = Date.now() - 30*864e5;
+    const abertas = S.os.filter(o => o.status !== "entregue");
+    const prontas = S.os.filter(o => o.status === "pronto");
+    const vencem = abertas.filter(o => o.prazo && mesmoDia(toDate(o.prazo), hoje)).length;
+    const entradasHoje = S.lanc.filter(l => l.valor > 0 && mesmoDia(toDate(l.data), hoje)).reduce((s,l) => s + l.valor, 0);
+    const ent30 = S.os.filter(o => o.status === "entregue" && toDate(o.entregueEm) >= d30);
+    const ticket = ent30.length ? ent30.reduce((s,o) => s + (o.valor||0), 0) / ent30.length : 0;
+    const baixo = S.produtos.filter(p => (p.qtd||0) <= (p.minimo||0));
+    const cols = ["analise","aprovacao","reparo","pronto"];
+    return `${backupPendente() ? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amarelo-claro);border-color:#ffe07a;padding:14px 18px"><span><b>Backup de hoje pendente.</b> <span class="muted">Último: ${S.loja?.backup?.ultimo ? fmtHora(S.loja.backup.ultimo) : "nunca"} · Google Drive ${esc(S.loja?.backup?.conta||"")}</span></span><button class="btn btn-dark btn-sm" data-a="backup-drive">Fazer backup agora</button></div>` : ""}<div class="kpis">
+      <div class="card kpi"><span class="muted">OS abertas</span><div class="v">${abertas.length}</div><span class="tag t-amarela">${vencem} vencem hoje</span></div>
+      <div class="card kpi"><span class="muted">Prontas p/ retirada</span><div class="v">${prontas.length}</div><span class="tag t-neutra">avise pelo WhatsApp</span></div>
+      <div class="card kpi"><span class="muted">Entradas hoje</span><div class="v">${brl(entradasHoje).replace(",00","")}</div><span class="tag t-neutra">caixa do dia</span></div>
+      <div class="card kpi"><span class="muted">Ticket médio OS</span><div class="v">${brl(ticket).replace(",00","")}</div><span class="tag t-neutra">últimos 30 dias</span></div>
+    </div>
+    <div class="dois"><div class="a">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="font-size:24px">Bancada agora</h2><button class="btn btn-ghost btn-sm" data-a="ir" data-v="os" data-m="quadro">Abrir quadro →</button></div>
+      <div class="quadro" style="grid-template-columns:repeat(4,minmax(170px,1fr))">${cols.map(k => { const it = S.os.filter(o => o.status===k); return `<div class="col"><div class="h"><span>${SL[k]}</span><span>${it.length}</span></div>${it.slice(0,4).map(osCard).join("") || `<span class="muted" style="font-size:13px">—</span>`}</div>`; }).join("")}</div>
+    </div><div class="b">
+      <div class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:19px">Prontas para retirada</h3>${prontas.map(o => `<div class="lista-linha" style="cursor:pointer" data-a="abrir-os" data-id="${o.id}"><span>#${String(o.numero).padStart(4,"0")} · ${esc(o.cliente)}</span><b>${brl(o.valor)}</b></div>`).join("") || `<span class="muted" style="font-size:14px">Nenhuma no momento.</span>`}</div>
+      <div class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:baseline"><h3 style="font-size:19px">Estoque baixo</h3><button class="btn btn-ghost btn-sm" data-a="ir" data-v="estoque">Ver</button></div>${baixo.slice(0,6).map(p => `<div class="lista-linha"><span>${esc(p.nome)}${p.compativel?` · ${esc(p.compativel)}`:""}</span><span class="tag ${p.qtd<=0?"t-vermelha":"t-amarela"}">${p.qtd||0} un.</span></div>`).join("") || `<span class="muted" style="font-size:14px">Tudo acima do mínimo.</span>`}</div>
+    </div></div>
+    ${S.os.length || S.produtos.length ? "" : `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><div><b>Sistema vazio.</b> <span class="muted">Abra a primeira OS ou cadastre produtos no Estoque.${isAdmin()?" Para demonstrar, carregue dados de exemplo em Configurações.":""}</span></div><button class="btn btn-primary" data-a="nova-os">+ Nova OS</button></div>`}`;
+  }},
+
+  os: {
+    acoes(){ return `<div class="seg"><button class="${S.modoOS==="lista"?"on":""}" data-a="modo-os" data-m="lista">Lista</button><button class="${S.modoOS==="quadro"?"on":""}" data-a="modo-os" data-m="quadro">Quadro</button></div>`; },
+    html(){
+      const base = filtraBusca(S.os, ["numero","cliente","telefone","aparelho","imei","defeito"]);
+      if(S.modoOS === "quadro"){
+        return `<div class="quadro" style="grid-template-columns:repeat(6,minmax(190px,1fr))">${STATUS.map(k => { const it = base.filter(o => o.status===k); return `<div class="col" style="min-height:420px"><div class="h"><span>${SL[k]}</span><span>${it.length}</span></div>${it.map(o => `<button class="os-card" data-a="abrir-os" data-id="${o.id}"><div class="m"><span>#${String(o.numero).padStart(4,"0")}</span><span>${o.prazo?fmtData(o.prazo):""}</span></div><b>${esc(o.aparelho)}</b><span style="font-size:13px">${esc(o.defeito)}</span><div class="m" style="border-top:1px solid var(--linha);padding-top:6px;margin-top:4px"><span>${esc(o.cliente)}</span><b style="font-size:12px;color:var(--texto)">${brl(o.valor)}</b></div></button>`).join("")}</div>`; }).join("")}</div>`;
+      }
+      const filtros = [["abertas","Abertas"],["todas","Todas"],...STATUS.map(k => [k, SL[k]])];
+      const cont = k => k==="todas" ? base.length : k==="abertas" ? base.filter(o => o.status!=="entregue").length : base.filter(o => o.status===k).length;
+      const lista = base.filter(o => S.filtro==="todas" || (S.filtro==="abertas" ? o.status!=="entregue" : o.status===S.filtro));
+      return `<div class="filtros">${filtros.map(([k,l]) => `<button class="pill ${S.filtro===k?"on":""}" data-a="filtro" data-f="${k}">${l} <span style="opacity:.6">${cont(k)}</span></button>`).join("")}</div>
+      <div class="card" style="padding:6px 16px;overflow-x:auto">${lista.length ? `<table><thead><tr><th>OS</th><th>Aparelho</th><th class="hide-mob">Defeito</th><th>Cliente</th><th class="hide-mob">Técnico</th><th>Prazo</th><th>Status</th><th class="num">Valor</th></tr></thead><tbody>${lista.map(o => `<tr class="click" data-a="abrir-os" data-id="${o.id}"><td class="muted">#${String(o.numero).padStart(4,"0")}</td><td><b>${esc(o.aparelho)}</b></td><td class="hide-mob">${esc(o.defeito)}</td><td>${esc(o.cliente)}</td><td class="hide-mob">${esc(o.tecnico||"—")}</td><td>${o.prazo?fmtData(o.prazo):"—"}</td><td><span class="tag ${STAG[o.status]}">${SL[o.status]}</span></td><td class="num">${brl(o.valor)}</td></tr>`).join("")}</tbody></table>` : `<div class="vazio">Nenhuma OS aqui. <a href="#" data-a="nova-os">Abrir nova OS</a></div>`}</div>`;
+    }
+  },
+
+  pdv: { html(){
+    const prods = filtraBusca(S.produtos.filter(p => (p.preco||0) > 0), ["nome","compativel"]);
+    const total = S.cart.reduce((s,c) => s + c.preco*c.qtd, 0);
+    return `<div class="pdv"><div class="prods">${prods.map(p => `<button class="prod" data-a="add-cart" data-id="${p.id}" ${p.qtd<=0?"disabled style='opacity:.5'":""}><span class="muted" style="font-size:12px">${p.qtd||0} em estoque</span><span>${esc(p.nome)}${p.compativel?` · ${esc(p.compativel)}`:""}</span><span class="p">${brl(p.preco)}</span></button>`).join("") || `<div class="card vazio" style="grid-column:1/-1">Cadastre produtos com preço de venda no Estoque para vender aqui.</div>`}</div>
+    <div class="card carrinho" style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:21px">Venda atual</h3>
+      ${S.cart.length ? S.cart.map((c,i) => `<div class="lista-linha" style="border-top:0;border-bottom:1px solid var(--linha);padding:0 0 8px"><span>${c.qtd}× ${esc(c.nome)}</span><span style="display:flex;gap:6px;align-items:center">${brl(c.preco*c.qtd)}<button class="btn btn-sm btn-ghost" data-a="rm-cart" data-i="${i}" title="Remover">×</button></span></div>`).join("") : `<span class="muted" style="font-size:14px">Toque em um produto para adicionar.</span>`}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:4px"><span>Total</span><span style="font-size:34px;font-weight:700">${brl(total)}</span></div>
+      <label class="f">Cliente (opcional)<input class="input" id="pdv-cliente" placeholder="Consumidor"></label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${["Pix","Cartão","Dinheiro"].map(f => `<button class="btn ${f==="Pix"?"btn-primary":""}" data-a="pagar" data-f="${f}" ${S.cart.length?"":"disabled"}>${f}</button>`).join("")}</div>
+    </div></div>`;
+  }},
+
+  estoque: {
+    acoes(){ return `<button class="btn btn-dark" data-a="novo-prod">+ Novo item</button>`; },
+    html(){
+      const lista = filtraBusca(S.produtos, ["nome","compativel","tipo"]);
+      const valor = S.produtos.reduce((s,p) => s + (p.custo||0)*(p.qtd||0), 0);
+      const baixo = S.produtos.filter(p => (p.qtd||0) <= (p.minimo||0)).length;
+      return `<div class="kpis"><div class="card kpi"><span class="muted">Itens cadastrados</span><div class="v">${S.produtos.length}</div></div><div class="card kpi"><span class="muted">No mínimo ou abaixo</span><div class="v">${baixo}</div></div><div class="card kpi"><span class="muted">Valor em estoque (custo)</span><div class="v">${brl(valor).replace(",00","")}</div></div></div>
+      <div class="card" style="padding:6px 16px;overflow-x:auto">${lista.length ? `<table><thead><tr><th>Item</th><th>Compatível</th><th class="hide-mob">Tipo</th><th class="num">Qtd.</th><th class="num hide-mob">Mínimo</th><th class="num hide-mob">Custo</th><th class="num">Venda</th><th>Situação</th></tr></thead><tbody>${lista.map(p => `<tr class="click" data-a="edit-prod" data-id="${p.id}"><td><b>${esc(p.nome)}</b></td><td>${esc(p.compativel||"—")}</td><td class="hide-mob">${p.tipo==="peca"?"Peça":"Acessório"}</td><td class="num">${p.qtd||0}</td><td class="num hide-mob">${p.minimo||0}</td><td class="num hide-mob">${brl(p.custo)}</td><td class="num">${p.preco?brl(p.preco):"—"}</td><td>${(p.qtd||0)<=0?`<span class="tag t-vermelha">Sem estoque</span>`:(p.qtd||0)<=(p.minimo||0)?`<span class="tag t-amarela">Repor</span>`:`<span class="tag t-verde">OK</span>`}</td></tr>`).join("")}</tbody></table>` : `<div class="vazio">Nenhum item. <a href="#" data-a="novo-prod">Cadastrar o primeiro</a></div>`}</div>`;
+    }
+  },
+
+  clientes: { html(){
+    const mapa = new Map();
+    S.os.forEach(o => { const k = soDigitos(o.telefone) || (o.cliente||"").toLowerCase(); if(!k) return;
+      const c = mapa.get(k) || {nome:o.cliente, telefone:o.telefone, aparelhos:new Set(), os:0, total:0, ultima:null};
+      c.aparelhos.add(o.aparelho); c.os++; if(o.status==="entregue") c.total += o.valor||0;
+      if(!c.ultima || (o.numero||0) > (c.ultima.numero||0)) c.ultima = o; mapa.set(k, c); });
+    let lista = [...mapa.values()].sort((a,b) => (b.ultima?.numero||0) - (a.ultima?.numero||0));
+    const q = S.busca.trim().toLowerCase(); if(q) lista = lista.filter(c => (c.nome+" "+c.telefone).toLowerCase().includes(q));
+    return `<div class="kpis"><div class="card kpi"><span class="muted">Clientes</span><div class="v">${mapa.size}</div></div><div class="card kpi"><span class="muted">Com OS aberta</span><div class="v">${new Set(S.os.filter(o=>o.status!=="entregue").map(o=>soDigitos(o.telefone)||o.cliente)).size}</div></div></div>
+    <div class="card" style="padding:6px 16px;overflow-x:auto">${lista.length ? `<table><thead><tr><th>Nome</th><th>WhatsApp</th><th class="num">Aparelhos</th><th>Última OS</th><th class="num">Total gasto</th><th></th></tr></thead><tbody>${lista.map(c => `<tr><td><b>${esc(c.nome)}</b></td><td>${esc(c.telefone||"—")}</td><td class="num">${c.aparelhos.size}</td><td>${c.ultima?`<a href="#" data-a="abrir-os" data-id="${c.ultima.id}">#${String(c.ultima.numero).padStart(4,"0")}</a> · ${fmtData(c.ultima.criadoEm)}`:"—"}</td><td class="num">${brl(c.total)}</td><td class="num">${soDigitos(c.telefone).length>=10?`<a class="btn btn-sm" target="_blank" rel="noopener" href="https://wa.me/55${soDigitos(c.telefone)}">WhatsApp</a>`:""}</td></tr>`).join("")}</tbody></table>` : `<div class="vazio">Os clientes aparecem aqui automaticamente a partir das OS.</div>`}</div>`;
+  }},
+
+  financeiro: {
+    acoes(){ return `<div style="display:flex;gap:8px"><button class="btn" data-a="novo-lanc" data-t="entrada">+ Entrada</button><button class="btn btn-dark" data-a="novo-lanc" data-t="saida">+ Saída</button></div>`; },
+    html(){
+      const hoje = new Date(), mes = hoje.getMonth(), ano = hoje.getFullYear();
+      const doMes = S.lanc.filter(l => { const d = toDate(l.data); return d && d.getMonth()===mes && d.getFullYear()===ano; });
+      const caixaHoje = S.lanc.filter(l => mesmoDia(toDate(l.data), hoje)).reduce((s,l) => s + l.valor, 0);
+      const ent = doMes.filter(l => l.valor>0).reduce((s,l) => s+l.valor, 0), sai = doMes.filter(l => l.valor<0).reduce((s,l) => s+l.valor, 0);
+      const areceber = S.os.filter(o => o.status==="pronto").reduce((s,o) => s+(o.valor||0), 0);
+      const lista = filtraBusca(S.lanc, ["descricao","categoria","forma"]);
+      return `<div class="kpis"><div class="card kpi"><span class="muted">Caixa de hoje</span><div class="v">${brl(caixaHoje)}</div></div><div class="card kpi"><span class="muted">A receber (OS prontas)</span><div class="v">${brl(areceber)}</div></div><div class="card kpi"><span class="muted">Saldo do mês</span><div class="v">${brl(ent+sai)}</div><span class="tag t-neutra">${brl(ent)} entradas · ${brl(-sai)} saídas</span></div></div>
+      <div class="card" style="padding:6px 16px;overflow-x:auto">${lista.length ? `<table><thead><tr><th>Data</th><th>Descrição</th><th class="hide-mob">Categoria</th><th class="hide-mob">Forma</th><th class="num">Valor</th><th></th></tr></thead><tbody>${lista.slice(0,200).map(l => `<tr><td>${fmtData(l.data)}</td><td>${esc(l.descricao)}</td><td class="hide-mob">${esc(l.categoria||"")}</td><td class="hide-mob">${esc(l.forma||"")}</td><td class="num" style="color:${l.valor<0?"var(--vermelho)":"var(--verde)"}">${l.valor<0?"− ":"+ "}${brl(Math.abs(l.valor))}</td><td class="num"><button class="btn btn-sm btn-ghost btn-danger" data-a="del-lanc" data-id="${l.id}" title="Excluir">×</button></td></tr>`).join("")}</tbody></table>` : `<div class="vazio">Sem lançamentos. Vendas no PDV e OS entregues entram aqui automaticamente.</div>`}</div>`;
+    }
+  },
+
+  relatorios: { html(){
+    const hoje = new Date(); const meses = [];
+    for(let i=5;i>=0;i--){ const d = new Date(hoje.getFullYear(), hoje.getMonth()-i, 1); meses.push({d, label:d.toLocaleDateString("pt-BR",{month:"short"}).replace(".",""), v:0}); }
+    S.lanc.forEach(l => { if(l.valor<=0) return; const d = toDate(l.data); const m = meses.find(m => d && m.d.getMonth()===d.getMonth() && m.d.getFullYear()===d.getFullYear()); if(m) m.v += l.valor; });
+    const max = Math.max(1, ...meses.map(m => m.v));
+    const def = {}; S.os.forEach(o => { const k = (o.defeito||"Outros").trim(); def[k] = (def[k]||0)+1; });
+    const defs = Object.entries(def).sort((a,b) => b[1]-a[1]).slice(0,6); const dmax = defs[0]?.[1] || 1;
+    const tec = {}; S.os.filter(o => o.status==="entregue").forEach(o => { const k = o.tecnico||"—"; tec[k] = (tec[k]||0) + (o.valor||0); });
+    return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:24px;align-items:start">
+      <div class="card" style="display:flex;flex-direction:column;gap:14px"><h3 style="font-size:20px">Entradas por mês</h3><div class="barras">${meses.map((m,i) => `<div><span>${m.v?(m.v>=1000?"R$ "+(m.v/1000).toFixed(1).replace(".",",")+"k":brl(m.v)):""}</span><i class="${i===5?"on":""}" style="height:${m.v/max*100}%"></i></div>`).join("")}</div><div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px">${meses.map(m => `<span class="muted" style="font-size:12px;text-align:center">${m.label}</span>`).join("")}</div></div>
+      <div class="card" style="display:flex;flex-direction:column;gap:14px"><h3 style="font-size:20px">Defeitos mais comuns</h3>${defs.map(([k,n]) => `<div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(k)}</span><b>${n}</b></div><div class="trilho"><i style="width:${n/dmax*100}%"></i></div></div>`).join("") || `<span class="muted">Sem OS ainda.</span>`}</div>
+      <div class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:20px">Faturado por técnico (OS entregues)</h3>${Object.entries(tec).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<div class="lista-linha"><span>${esc(k)}</span><b>${brl(v)}</b></div>`).join("") || `<span class="muted">Sem OS entregues ainda.</span>`}</div>
+    </div>`;
+  }},
+
+  config: { html(){
+    const eq = (S.loja?.equipe || []);
+    return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:24px;align-items:start">
+      <div class="card" style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:20px">Equipe com acesso</h3>
+        <p class="muted" style="margin:0;font-size:14px">Só esses e-mails entram no sistema. A pessoa entra em “Primeiro acesso? Criar senha” com o mesmo e-mail e confirma pelo link.</p>
+        ${eq.map(e => `<div class="lista-linha"><span>${esc(e)}${e===ADMIN?` <span class="tag t-amarela">admin</span>`:""}</span>${isAdmin() && e!==ADMIN ? `<button class="btn btn-sm btn-ghost btn-danger" data-a="rm-membro" data-e="${esc(e)}">Remover</button>` : ""}</div>`).join("")}
+        ${isAdmin() ? `<form id="f-membro" style="display:flex;gap:8px"><input class="input" type="email" id="novo-membro" placeholder="email@exemplo.com" required><button class="btn btn-primary">Adicionar</button></form>` : `<span class="muted" style="font-size:13px">Só o administrador altera a equipe.</span>`}
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:20px">Dados da loja</h3>
+        <form id="f-loja" style="display:flex;flex-direction:column;gap:12px">
+          <label class="f">Nome<input class="input" id="lj-nome" value="${esc(S.loja?.nome)}"></label>
+          <label class="f">Endereço<input class="input" id="lj-end" value="${esc(S.loja?.endereco)}"></label>
+          <label class="f">Garantia padrão (texto no aviso de retirada)<input class="input" id="lj-gar" value="${esc(S.loja?.garantia || "90 dias de garantia no serviço")}"></label>
+          <div><button class="btn btn-dark">Salvar</button></div>
+        </form>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px;grid-column:1/-1"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h3 style="font-size:20px">Backup no Google Drive</h3>${S.loja?.backup?.conta ? `<span class="tag t-verde">Conectado · ${esc(S.loja.backup.conta)}</span>` : `<span class="tag t-amarela">Não conectado</span>`}</div>
+        <p class="muted" style="margin:0;font-size:14px">Salva uma cópia de tudo (OS, estoque, vendas e lançamentos) na pasta <b>${PASTA_BACKUP}</b> do Google Drive da loja. Uma vez por dia o painel lembra de fazer o backup. Guarda os últimos ${MANTER_BACKUPS}. O sistema só enxerga os arquivos que ele mesmo criou no Drive.</p>
+        <span style="font-size:14px">Último backup: <b>${S.loja?.backup?.ultimo ? fmtHora(S.loja.backup.ultimo) : "nunca"}</b></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="backup-drive">${S.loja?.backup?.conta ? "Fazer backup agora" : "Conectar Google Drive e fazer backup"}</button>${S.loja?.backup?.conta ? `<button class="btn" data-a="listar-backups">Ver backups / restaurar</button>` : ""}<button class="btn btn-ghost" data-a="backup-local">Baixar cópia no computador</button><label class="btn btn-ghost" style="cursor:pointer">Restaurar de arquivo<input type="file" accept=".json,application/json" id="arquivo-restaurar" hidden></label></div>
+        <div id="lista-backups"></div>
+      </div>
+      ${isAdmin() ? `<div class="card" style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:20px">Demonstração</h3><p class="muted" style="margin:0;font-size:14px">Carrega OS, produtos e lançamentos fictícios para mostrar o sistema. Dá para apagar depois.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="exemplo">Carregar dados de exemplo</button><button class="btn btn-danger" data-a="limpar-exemplo">Apagar dados de exemplo</button></div></div>` : ""}
+    </div>`;
+  }}
+};
+
+/* ---------- camada: gaveta OS e modais ---------- */
+let MODAL = null;
+function renderCamada(){
+  let h = "";
+  const o = S.sel && S.os.find(x => x.id === S.sel);
+  if(o){
+    const si = STATUS.indexOf(o.status);
+    const garantia = S.loja?.garantia || "90 dias de garantia no serviço";
+    const msg = o.status==="pronto"
+      ? `Olá, ${o.cliente.split(" ")[0]}! Aqui é da ${S.loja?.nome||"IVIMPORTS"}. Seu ${o.aparelho} (OS #${String(o.numero).padStart(4,"0")}) está pronto para retirada. Valor: ${brl(o.valor)}. ${garantia}.`
+      : o.status==="aprovacao"
+      ? `Olá, ${o.cliente.split(" ")[0]}! Aqui é da ${S.loja?.nome||"IVIMPORTS"}. O orçamento do seu ${o.aparelho} (OS #${String(o.numero).padStart(4,"0")}) ficou em ${brl(o.valor)}. Podemos seguir com o reparo?`
+      : `Olá, ${o.cliente.split(" ")[0]}! Aqui é da ${S.loja?.nome||"IVIMPORTS"}. Atualização da OS #${String(o.numero).padStart(4,"0")} (${o.aparelho}): ${SL[o.status]}.`;
+    const tel = soDigitos(o.telefone);
+    h += `<div class="backdrop" data-a="fechar-os"></div><aside class="gaveta">
+      <div class="cab"><div><div class="kicker" style="color:var(--cinza)">Ordem de serviço</div><div style="font-size:30px;font-weight:700">#${String(o.numero).padStart(4,"0")}</div><span class="tag ${STAG[o.status]}">${SL[o.status]}</span></div><button class="btn btn-sm" data-a="fechar-os">×</button></div>
+      <div class="corpo">
+        <div class="infos"><div><span>Aparelho</span>${esc(o.aparelho)}</div><div><span>IMEI / série</span>${esc(o.imei||"—")}</div><div><span>Cliente</span>${esc(o.cliente)}<span>${esc(o.telefone||"")}</span></div><div><span>Defeito</span>${esc(o.defeito)}</div><div><span>Valor</span><b>${brl(o.valor)}</b></div><div><span>Técnico · prazo</span>${esc(o.tecnico||"—")} · ${o.prazo?fmtData(o.prazo):"—"}</div>${o.obs?`<div style="grid-column:1/-1"><span>Observações / checklist de entrada</span>${esc(o.obs)}</div>`:""}</div>
+        <div><div class="kicker" style="color:var(--cinza);padding-bottom:10px">Andamento</div>${STATUS.map((k,i) => `<div class="passo"><div class="d"><i class="${i<=si?"on":""}"></i>${i<STATUS.length-1?"<s></s>":""}</div><span style="padding-bottom:12px;color:${i<=si?"var(--texto)":"var(--cinza-2)"}">${SL[k]}</span><span class="muted" style="font-size:12px">${fmtHora(o.historico?.[k])}</span></div>`).join("")}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${si < STATUS.length-1 ? `<button class="btn btn-primary" data-a="avancar">${o.status==="pronto" ? "Entregar e receber" : "Avançar para " + SL[STATUS[si+1]]}</button>` : ""}
+          ${si > 0 && o.status!=="entregue" ? `<button class="btn" data-a="voltar">Voltar etapa</button>` : ""}
+          <button class="btn" data-a="editar-os">Editar</button>
+          ${tel.length>=10 ? `<a class="btn" target="_blank" rel="noopener" href="https://wa.me/55${tel}?text=${encodeURIComponent(msg)}">Avisar no WhatsApp</a>` : ""}
+          <button class="btn btn-ghost" data-a="imprimir-os">Imprimir</button>
+        </div>
+        ${tel.length>=10 ? `<div style="display:flex;flex-direction:column;gap:6px"><span class="muted" style="font-size:12px">Mensagem que vai no WhatsApp</span><div style="background:var(--amarelo-claro);border-radius:14px;padding:12px 14px;font-size:14px">${esc(msg)}</div></div>` : ""}
+        <button class="btn btn-ghost btn-danger" style="align-self:flex-start" data-a="excluir-os">Excluir OS</button>
+      </div></aside>`;
+  }
+  if(MODAL) h += `<div class="modal-wrap"><div class="modal" data-stop>${MODAL}</div></div>`;
+  $("#camada").innerHTML = h;
+}
+
+function formOS(o = {}){
+  const hoje = new Date(Date.now() + 864e5).toISOString().slice(0,10);
+  const prazo = o.prazo ? toDate(o.prazo).toISOString().slice(0,10) : hoje;
+  return `<h2 style="font-size:24px">${o.id ? "Editar OS #" + String(o.numero).padStart(4,"0") : "Nova ordem de serviço"}</h2>
+  <form id="f-os" class="grid2">
+    <label class="f">Cliente<input class="input" name="cliente" required value="${esc(o.cliente)}" placeholder="Nome"></label>
+    <label class="f">WhatsApp<input class="input" name="telefone" value="${esc(o.telefone)}" placeholder="(67) 9…" inputmode="tel"></label>
+    <label class="f">Aparelho<input class="input" name="aparelho" required value="${esc(o.aparelho)}" placeholder="Marca e modelo"></label>
+    <label class="f">IMEI / nº de série<input class="input" name="imei" value="${esc(o.imei)}"></label>
+    <label class="f span2">Defeito relatado<input class="input" name="defeito" required value="${esc(o.defeito)}" placeholder="Ex.: Tela trincada"></label>
+    <label class="f">Valor (R$)<input class="input" name="valor" inputmode="decimal" value="${o.valor!=null?String(o.valor).replace(".",","):""}" placeholder="0,00"></label>
+    <label class="f">Prazo<input class="input" type="date" name="prazo" value="${prazo}"></label>
+    <label class="f">Técnico<input class="input" name="tecnico" value="${esc(o.tecnico)}"></label>
+    <label class="f">Senha / padrão do aparelho<input class="input" name="senha" value="${esc(o.senha)}" placeholder="opcional"></label>
+    <label class="f span2">Observações e checklist de entrada<textarea class="input" name="obs" placeholder="Ex.: sem chip, tela com risco, câmera OK, sem capa">${esc(o.obs)}</textarea></label>
+    <div class="acoes span2"><button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">${o.id ? "Salvar" : "Abrir OS"}</button></div>
+  </form>`;
+}
+function formProd(p = {}){
+  return `<h2 style="font-size:24px">${p.id ? "Editar item" : "Novo item de estoque"}</h2>
+  <form id="f-prod" class="grid2">
+    <label class="f span2">Nome<input class="input" name="nome" required value="${esc(p.nome)}" placeholder="Ex.: Tela OLED"></label>
+    <label class="f">Compatível com<input class="input" name="compativel" value="${esc(p.compativel)}" placeholder="Ex.: iPhone 13"></label>
+    <label class="f">Tipo<select class="input" name="tipo"><option value="peca" ${p.tipo!=="acessorio"?"selected":""}>Peça (uso na bancada)</option><option value="acessorio" ${p.tipo==="acessorio"?"selected":""}>Acessório (venda no balcão)</option></select></label>
+    <label class="f">Quantidade<input class="input" name="qtd" inputmode="numeric" value="${p.qtd ?? 0}"></label>
+    <label class="f">Mínimo<input class="input" name="minimo" inputmode="numeric" value="${p.minimo ?? 1}"></label>
+    <label class="f">Custo (R$)<input class="input" name="custo" inputmode="decimal" value="${p.custo!=null?String(p.custo).replace(".",","):""}"></label>
+    <label class="f">Preço de venda (R$)<input class="input" name="preco" inputmode="decimal" value="${p.preco!=null?String(p.preco).replace(".",","):""}" placeholder="deixe vazio se não vende no PDV"></label>
+    <div class="acoes span2">${p.id ? `<button type="button" class="btn btn-ghost btn-danger" data-a="del-prod" data-id="${p.id}" style="margin-right:auto">Excluir</button>` : ""}<button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">Salvar</button></div>
+  </form>`;
+}
+function formLanc(tipo){
+  return `<h2 style="font-size:24px">${tipo==="saida" ? "Nova saída" : "Nova entrada"}</h2>
+  <form id="f-lanc" class="grid2" data-t="${tipo}">
+    <label class="f span2">Descrição<input class="input" name="descricao" required placeholder="${tipo==="saida"?"Ex.: Fornecedor de peças":"Ex.: Serviço avulso"}"></label>
+    <label class="f">Valor (R$)<input class="input" name="valor" required inputmode="decimal" placeholder="0,00"></label>
+    <label class="f">Data<input class="input" type="date" name="data" value="${new Date().toISOString().slice(0,10)}"></label>
+    <label class="f">Categoria<input class="input" name="categoria" list="cats" placeholder="${tipo==="saida"?"Compra de peças":"Serviço"}"><datalist id="cats"><option>Serviço</option><option>Acessórios</option><option>Compra de peças</option><option>Despesa fixa</option><option>Pessoal</option><option>Impostos</option></datalist></label>
+    <label class="f">Forma<select class="input" name="forma"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Boleto</option><option>Transferência</option></select></label>
+    <div class="acoes span2"><button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">Salvar</button></div>
+  </form>`;
+}
+function formEntrega(o){
+  return `<h2 style="font-size:24px">Entregar OS #${String(o.numero).padStart(4,"0")}</h2>
+  <p class="muted" style="margin:0">${esc(o.aparelho)} · ${esc(o.cliente)}. O valor entra no caixa de hoje.</p>
+  <form id="f-entrega" class="grid2">
+    <label class="f">Valor recebido (R$)<input class="input" name="valor" inputmode="decimal" value="${String(o.valor||0).replace(".",",")}"></label>
+    <label class="f">Forma<select class="input" name="forma"><option>Pix</option><option>Dinheiro</option><option>Cartão</option></select></label>
+    <div class="acoes span2"><button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">Confirmar entrega</button></div>
+  </form>`;
+}
+
+/* ---------- ações ---------- */
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-a]"); if(!t) return;
+  const a = t.dataset.a;
+  if(t.tagName === "A" && t.getAttribute("href") === "#") e.preventDefault();
+  try {
+    switch(a){
+      case "ir": S.view = t.dataset.v; if(t.dataset.m) S.modoOS = t.dataset.m; S.sel = null; $("#side").classList.remove("aberta"); render(); window.scrollTo(0,0); break;
+      case "menu": $("#side").classList.toggle("aberta"); break;
+      case "sair": pararEscuta(); await signOut(auth); break;
+      case "modo-os": S.modoOS = t.dataset.m; render(); break;
+      case "filtro": S.filtro = t.dataset.f; render(); break;
+      case "abrir-os": S.sel = t.dataset.id; renderCamada(); break;
+      case "fechar-os": S.sel = null; renderCamada(); break;
+      case "fechar-modal": MODAL = null; renderCamada(); break;
+      case "nova-os": MODAL = formOS(); renderCamada(); setTimeout(() => $("#f-os [name=cliente]")?.focus(), 30); break;
+      case "editar-os": MODAL = formOS(S.os.find(x => x.id === S.sel)); renderCamada(); break;
+      case "avancar": {
+        const o = S.os.find(x => x.id === S.sel); const prox = STATUS[STATUS.indexOf(o.status)+1];
+        if(prox === "entregue"){ MODAL = formEntrega(o); renderCamada(); break; }
+        await updateDoc(doc(col("os"), o.id), { status:prox, ["historico."+prox]: serverTimestamp() });
+        toast(`OS #${String(o.numero).padStart(4,"0")}: ${SL[prox]}`); break;
+      }
+      case "voltar": { const o = S.os.find(x => x.id === S.sel); const ant = STATUS[STATUS.indexOf(o.status)-1]; await updateDoc(doc(col("os"), o.id), { status:ant }); break; }
+      case "excluir-os": { const o = S.os.find(x => x.id === S.sel); if(confirmar(`Excluir a OS #${String(o.numero).padStart(4,"0")}? Não dá para desfazer.`)){ await deleteDoc(doc(col("os"), o.id)); S.sel = null; renderCamada(); toast("OS excluída"); } break; }
+      case "imprimir-os": imprimirOS(S.os.find(x => x.id === S.sel)); break;
+      case "novo-prod": MODAL = formProd(); renderCamada(); break;
+      case "edit-prod": MODAL = formProd(S.produtos.find(p => p.id === t.dataset.id)); renderCamada(); break;
+      case "del-prod": if(confirmar("Excluir este item do estoque?")){ await deleteDoc(doc(col("produtos"), t.dataset.id)); MODAL = null; renderCamada(); toast("Item excluído"); } break;
+      case "add-cart": { const p = S.produtos.find(x => x.id === t.dataset.id); const c = S.cart.find(x => x.id === p.id);
+        if(c){ if(c.qtd >= (p.qtd||0)){ toast("Sem mais unidades em estoque"); break; } c.qtd++; } else S.cart.push({id:p.id, nome:p.nome, preco:p.preco, qtd:1}); render(); break; }
+      case "rm-cart": S.cart.splice(+t.dataset.i, 1); render(); break;
+      case "pagar": await pagar(t.dataset.f); break;
+      case "novo-lanc": MODAL = formLanc(t.dataset.t); renderCamada(); break;
+      case "del-lanc": if(confirmar("Excluir este lançamento?")){ await deleteDoc(doc(col("lancamentos"), t.dataset.id)); toast("Lançamento excluído"); } break;
+      case "rm-membro": if(confirmar(`Remover ${t.dataset.e} da equipe?`)){ await updateDoc(lojaRef, { equipe: (S.loja.equipe||[]).filter(x => x !== t.dataset.e) }); toast("Removido"); } break;
+      case "exemplo": await carregarExemplo(); break;
+      case "backup-drive": await backupDrive(t); break;
+      case "listar-backups": await listarBackups(); break;
+      case "restaurar-drive": await restaurarDrive(t.dataset.id, t.dataset.n); break;
+      case "backup-local": await backupLocal(); break;
+      case "limpar-exemplo": await limparExemplo(); break;
+    }
+  } catch(err){ console.error(err); toast(traduz(err)); }
+});
+function confirmar(t){ return window.confirm(t); }
+
+document.addEventListener("submit", async e => {
+  const f = e.target; e.preventDefault();
+  const v = Object.fromEntries(new FormData(f).entries());
+  const btn = f.querySelector("button:not([type=button])"); if(btn) btn.disabled = true;
+  try {
+    if(f.id === "f-os"){
+      const dados = { cliente:v.cliente.trim(), telefone:v.telefone.trim(), aparelho:v.aparelho.trim(), imei:v.imei.trim(), defeito:v.defeito.trim(),
+        valor:num(v.valor), prazo: v.prazo ? Timestamp.fromDate(new Date(v.prazo+"T18:00:00")) : null, tecnico:v.tecnico.trim(), senha:v.senha.trim(), obs:v.obs.trim() };
+      const atual = S.sel && MODAL && MODAL.startsWith("<h2") && MODAL.includes("Editar OS") ? S.os.find(x => x.id === S.sel) : null;
+      if(atual){ await updateDoc(doc(col("os"), atual.id), dados); toast("OS atualizada"); }
+      else {
+        const numero = await runTransaction(db, async tx => { const s = await tx.get(lojaRef); const n = s.data().proximaOS || 1; tx.update(lojaRef, { proximaOS: n+1 }); return n; });
+        const ref = await addDoc(col("os"), { ...dados, numero, status:"recebido", historico:{ recebido: serverTimestamp() }, criadoEm: serverTimestamp(), criadoPor: S.user.email });
+        S.sel = ref.id; toast(`OS #${String(numero).padStart(4,"0")} aberta`);
+      }
+      MODAL = null; renderCamada();
+    }
+    if(f.id === "f-entrega"){
+      const o = S.os.find(x => x.id === S.sel); const valor = num(v.valor);
+      const b = writeBatch(db);
+      b.update(doc(col("os"), o.id), { status:"entregue", valor, "historico.entregue": serverTimestamp(), entregueEm: serverTimestamp(), formaPagamento: v.forma });
+      if(valor > 0) b.set(doc(col("lancamentos")), { data: serverTimestamp(), descricao:`OS #${String(o.numero).padStart(4,"0")} · ${o.aparelho}`, categoria:"Serviço", forma:v.forma, valor, origem:"os", osId:o.id });
+      await b.commit(); MODAL = null; renderCamada(); toast("OS entregue e valor lançado no caixa");
+    }
+    if(f.id === "f-prod"){
+      const dados = { nome:v.nome.trim(), compativel:v.compativel.trim(), tipo:v.tipo, qtd:Math.round(num(v.qtd)), minimo:Math.round(num(v.minimo)), custo:num(v.custo), preco:num(v.preco) };
+      const editando = MODAL.includes("Editar item") ? f.querySelector("[data-a=del-prod]")?.dataset.id : null;
+      if(editando) await updateDoc(doc(col("produtos"), editando), dados); else await addDoc(col("produtos"), dados);
+      MODAL = null; renderCamada(); toast("Estoque salvo");
+    }
+    if(f.id === "f-lanc"){
+      const sinal = f.dataset.t === "saida" ? -1 : 1;
+      await addDoc(col("lancamentos"), { data: Timestamp.fromDate(new Date(v.data+"T12:00:00")), descricao:v.descricao.trim(), categoria:v.categoria.trim(), forma:v.forma, valor: sinal*Math.abs(num(v.valor)), origem:"manual" });
+      MODAL = null; renderCamada(); toast("Lançamento salvo");
+    }
+    if(f.id === "f-membro"){
+      const em = $("#novo-membro").value.trim().toLowerCase();
+      if(!(S.loja.equipe||[]).includes(em)) await updateDoc(lojaRef, { equipe:[...(S.loja.equipe||[]), em] });
+      toast("Adicionado à equipe");
+    }
+    if(f.id === "f-loja"){
+      await updateDoc(lojaRef, { nome:$("#lj-nome").value.trim(), endereco:$("#lj-end").value.trim(), garantia:$("#lj-gar").value.trim() });
+      toast("Dados da loja salvos");
+    }
+  } catch(err){ console.error(err); toast(traduz(err)); }
+  if(btn) btn.disabled = false;
+});
+$("#busca").addEventListener("input", e => { S.busca = e.target.value; if(S.view === "painel" && S.busca) S.view = "os"; render(); });
+document.addEventListener("keydown", e => {
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="k"){ e.preventDefault(); $("#busca").focus(); }
+  if(e.key === "Escape"){ if(MODAL){ MODAL = null; } else S.sel = null; renderCamada(); }
+});
+// fecha o modal ao clicar fora
+document.addEventListener("mousedown", e => { if(e.target.classList?.contains("modal-wrap")){ MODAL = null; renderCamada(); } });
+
+async function pagar(forma){
+  if(!S.cart.length) return;
+  const total = S.cart.reduce((s,c) => s + c.preco*c.qtd, 0);
+  const cliente = $("#pdv-cliente")?.value.trim() || "Consumidor";
+  await runTransaction(db, async tx => {
+    const refs = S.cart.map(c => doc(col("produtos"), c.id));
+    const snaps = await Promise.all(refs.map(r => tx.get(r)));
+    snaps.forEach((s,i) => { if((s.data()?.qtd||0) < S.cart[i].qtd) throw new Error(`Estoque insuficiente: ${S.cart[i].nome}`); });
+    snaps.forEach((s,i) => tx.update(refs[i], { qtd: increment(-S.cart[i].qtd) }));
+    const venda = doc(col("vendas"));
+    tx.set(venda, { data: serverTimestamp(), itens: S.cart, total, forma, cliente, por: S.user.email });
+    tx.set(doc(col("lancamentos")), { data: serverTimestamp(), descricao:`Venda balcão · ${S.cart.map(c => c.qtd+"× "+c.nome).join(", ")}`.slice(0,140), categoria:"Acessórios", forma, valor: total, origem:"pdv", vendaId: venda.id });
+  });
+  S.cart = []; render(); toast(`Venda de ${brl(total)} registrada (${forma})`);
+}
+
+function imprimirOS(o){
+  const w = window.open("", "_blank"); if(!w) return;
+  w.document.write(`<html><head><title>OS ${o.numero}</title><style>body{font-family:Arial,sans-serif;padding:24px;max-width:720px;margin:auto;color:#111}h1{margin:0}table{width:100%;border-collapse:collapse;margin:16px 0}td{border:1px solid #ccc;padding:8px;font-size:14px}td b{display:block;font-size:11px;color:#666;font-weight:normal}.ass{margin-top:60px;display:flex;justify-content:space-between;gap:40px}.ass div{flex:1;border-top:1px solid #111;padding-top:6px;font-size:12px;text-align:center}</style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:4px solid #ffc400;padding-bottom:10px"><div><h1>${esc(S.loja?.nome||"IVIMPORTS")}</h1><div>${esc(S.loja?.endereco||"")}</div></div><div style="text-align:right"><div>Ordem de serviço</div><h1>#${String(o.numero).padStart(4,"0")}</h1></div></div>
+  <table><tr><td><b>Cliente</b>${esc(o.cliente)}</td><td><b>WhatsApp</b>${esc(o.telefone||"")}</td></tr><tr><td><b>Aparelho</b>${esc(o.aparelho)}</td><td><b>IMEI / série</b>${esc(o.imei||"")}</td></tr><tr><td colspan="2"><b>Defeito relatado</b>${esc(o.defeito)}</td></tr><tr><td colspan="2"><b>Observações / checklist de entrada</b>${esc(o.obs||"—")}</td></tr><tr><td><b>Valor</b>${brl(o.valor)}</td><td><b>Prazo</b>${o.prazo?fmtData(o.prazo):"—"}</td></tr><tr><td><b>Entrada</b>${fmtHora(o.criadoEm)}</td><td><b>Técnico</b>${esc(o.tecnico||"")}</td></tr></table>
+  <p style="font-size:12px">${esc(S.loja?.garantia || "90 dias de garantia no serviço")}. Aparelhos não retirados em 90 dias após o aviso de pronto poderão ter destinação conforme a lei.</p>
+  <div class="ass"><div>Assinatura do cliente</div><div>${esc(S.loja?.nome||"IVIMPORTS")}</div></div>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+/* ---------- backup ---------- */
+function backupPendente(){
+  const u = toDate(S.loja?.backup?.ultimo);
+  return !u || (Date.now() - u.getTime()) > 20*3600e3;
+}
+const serial = v => v instanceof Timestamp ? {__ts: v.toMillis()} : Array.isArray(v) ? v.map(serial) : (v && typeof v === "object") ? Object.fromEntries(Object.entries(v).map(([k,x]) => [k, serial(x)])) : v;
+const desserial = v => (v && typeof v === "object" && !Array.isArray(v) && "__ts" in v && Object.keys(v).length === 1) ? Timestamp.fromMillis(v.__ts) : Array.isArray(v) ? v.map(desserial) : (v && typeof v === "object") ? Object.fromEntries(Object.entries(v).map(([k,x]) => [k, desserial(x)])) : v;
+async function montarBackup(){
+  const dados = {};
+  for(const c of COLECOES){ const snap = await getDocs(col(c)); dados[c] = snap.docs.map(d => ({ _id:d.id, ...serial(d.data()) })); }
+  return { sistema:"Bancada", loja:LOJA, versao:1, geradoEm:new Date().toISOString(), geradoPor:S.user.email, proximaOS:S.loja?.proximaOS || 1, dados };
+}
+const nomeArquivo = () => "bancada-ivimports-" + new Date().toISOString().slice(0,16).replace("T","_").replace(":","h") + ".json";
+
+let tokenGoogle = null, tokenExpira = 0;
+function pedirToken(){
+  return new Promise((ok, falha) => {
+    if(tokenGoogle && Date.now() < tokenExpira) return ok(tokenGoogle);
+    if(!window.google?.accounts?.oauth2) return falha(new Error("O Google ainda está carregando. Tente de novo em alguns segundos."));
+    const cli = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
+      login_hint: S.loja?.backup?.conta || "",
+      callback: r => { if(r.error) return falha(new Error("Autorização do Google não concedida.")); tokenGoogle = r.access_token; tokenExpira = Date.now() + (r.expires_in - 60)*1000; ok(tokenGoogle); },
+      error_callback: e => falha(new Error(e?.type === "popup_closed" ? "Janela do Google fechada antes de autorizar." : "Não foi possível abrir a janela do Google (libere pop-ups para este site)."))
+    });
+    cli.requestAccessToken({ prompt: S.loja?.backup?.conta ? "" : "consent" });
+  });
+}
+async function gapi(token, url, opt = {}){
+  const r = await fetch(url, { ...opt, headers: { Authorization: "Bearer " + token, ...(opt.headers||{}) } });
+  if(!r.ok){ const t = await r.text(); throw new Error("Google Drive respondeu " + r.status + ": " + t.slice(0,160)); }
+  return r.status === 204 ? null : (opt.raw ? r : r.json());
+}
+async function pastaBackup(token){
+  const q = encodeURIComponent(`name='${PASTA_BACKUP}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const l = await gapi(token, `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`);
+  if(l.files?.length) return l.files[0].id;
+  const p = await gapi(token, "https://www.googleapis.com/drive/v3/files?fields=id", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ name:PASTA_BACKUP, mimeType:"application/vnd.google-apps.folder" }) });
+  return p.id;
+}
+async function backupDrive(btn){
+  if(btn) btn.disabled = true;
+  try {
+    const token = await pedirToken();
+    toast("Gerando backup…");
+    const [info, pasta, conteudo] = await Promise.all([
+      gapi(token, "https://www.googleapis.com/oauth2/v3/userinfo"), pastaBackup(token), montarBackup()
+    ]);
+    const corpo = JSON.stringify(conteudo);
+    const fronteira = "bancada" + Math.random().toString(36).slice(2);
+    const multipart = `--${fronteira}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` + JSON.stringify({ name:nomeArquivo(), parents:[pasta], mimeType:"application/json" }) + `\r\n--${fronteira}\r\nContent-Type: application/json\r\n\r\n` + corpo + `\r\n--${fronteira}--`;
+    await gapi(token, "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", { method:"POST", headers:{"Content-Type":`multipart/related; boundary=${fronteira}`}, body: multipart });
+    // mantém só os últimos N
+    const q = encodeURIComponent(`'${pasta}' in parents and trashed=false`);
+    const l = await gapi(token, `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&fields=files(id)&pageSize=200`);
+    for(const f of (l.files||[]).slice(MANTER_BACKUPS)) await gapi(token, `https://www.googleapis.com/drive/v3/files/${f.id}`, { method:"DELETE" });
+    await updateDoc(lojaRef, { backup: { conta: info.email || "", ultimo: serverTimestamp(), por: S.user.email, tamanhoKB: Math.round(corpo.length/1024) } });
+    toast("Backup salvo no Google Drive ✓");
+  } catch(err){ console.error(err); toast(err.message || traduz(err)); }
+  if(btn) btn.disabled = false;
+}
+async function listarBackups(){
+  const box = $("#lista-backups"); box.innerHTML = `<span class="muted" style="font-size:14px">Buscando backups no Drive…</span>`;
+  try {
+    const token = await pedirToken(); const pasta = await pastaBackup(token);
+    const q = encodeURIComponent(`'${pasta}' in parents and trashed=false`);
+    const l = await gapi(token, `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&fields=files(id,name,createdTime,size)&pageSize=50`);
+    box.innerHTML = (l.files||[]).length ? `<table><thead><tr><th>Backup</th><th class="num">Tamanho</th><th></th></tr></thead><tbody>${l.files.map(f => `<tr><td>${new Date(f.createdTime).toLocaleString("pt-BR")}</td><td class="num">${Math.max(1,Math.round((f.size||0)/1024))} KB</td><td class="num"><button class="btn btn-sm" data-a="restaurar-drive" data-id="${f.id}" data-n="${esc(new Date(f.createdTime).toLocaleString("pt-BR"))}">Restaurar</button></td></tr>`).join("")}</tbody></table>` : `<span class="muted" style="font-size:14px">Nenhum backup na pasta ainda.</span>`;
+  } catch(err){ box.innerHTML = ""; toast(err.message || traduz(err)); }
+}
+async function restaurarDrive(id, quando){
+  if(!confirmar(`Restaurar o backup de ${quando}?\n\nTodos os dados atuais (OS, estoque, vendas e lançamentos) serão SUBSTITUÍDOS pelos do backup. Antes disso, um backup do estado atual é salvo no Drive.`)) return;
+  const token = await pedirToken();
+  await backupDrive();
+  const r = await gapi(token, `https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { raw:true });
+  await aplicarRestauracao(await r.json());
+}
+async function backupLocal(){
+  const conteudo = await montarBackup();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(conteudo, null, 1)], {type:"application/json"}));
+  a.download = nomeArquivo(); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast("Cópia baixada no computador");
+}
+async function aplicarRestauracao(b){
+  if(b?.sistema !== "Bancada" || !b.dados) throw new Error("Arquivo não é um backup do Bancada.");
+  toast("Restaurando…");
+  const ops = [];
+  for(const c of COLECOES){
+    const atuais = await getDocs(col(c));
+    const ids = new Set((b.dados[c]||[]).map(d => d._id));
+    atuais.docs.forEach(d => { if(!ids.has(d.id)) ops.push(["del", c, d.id]); });
+    (b.dados[c]||[]).forEach(({_id, ...d}) => ops.push(["set", c, _id, desserial(d)]));
+  }
+  for(let i=0;i<ops.length;i+=400){ const bt = writeBatch(db); ops.slice(i,i+400).forEach(([o,c,id,d]) => o==="del" ? bt.delete(doc(col(c), id)) : bt.set(doc(col(c), id), d)); await bt.commit(); }
+  await updateDoc(lojaRef, { proximaOS: Math.max(b.proximaOS||1, ...(b.dados.os||[]).map(o => (o.numero||0)+1)) });
+  toast(`Backup restaurado (${ops.length} registros) ✓`);
+}
+document.addEventListener("change", async e => {
+  if(e.target.id !== "arquivo-restaurar" || !e.target.files[0]) return;
+  try {
+    const b = JSON.parse(await e.target.files[0].text());
+    if(confirmar(`Restaurar o arquivo de backup gerado em ${b.geradoEm ? new Date(b.geradoEm).toLocaleString("pt-BR") : "?"}?\n\nTodos os dados atuais serão SUBSTITUÍDOS.`)) await aplicarRestauracao(b);
+  } catch(err){ toast(err.message || traduz(err)); }
+  e.target.value = "";
+});
+
+/* ---------- dados de exemplo (demonstração) ---------- */
+async function carregarExemplo(){
+  if(!confirmar("Carregar dados de exemplo na base? Eles ficam marcados e podem ser apagados depois.")) return;
+  const b = writeBatch(db); const agora = Date.now(); const ts = h => Timestamp.fromMillis(agora - h*3600e3);
+  const os = [
+    ["Bruna Teixeira","(67) 98812-4410","iPhone 12","Face ID indisponível",650,"recebido","Rafael",0],
+    ["Diego Alves","(67) 97730-1102","Redmi Note 12","Não carrega",180,"analise","Paula",24],
+    ["Lívia Costa","(67) 99104-7781","MacBook Air M1","Teclado falhando",1250,"aprovacao","Rafael",24],
+    ["Marina Souza","(67) 98455-0193","iPhone 13","Tela trincada",489,"reparo","Rafael",0],
+    ["João Pires","(67) 96621-3348","Galaxy A54","Bateria estufada",260,"reparo","Paula",0],
+    ["Ana Lima","(67) 99870-5521","Moto G84","Conector de carga",150,"pronto","Paula",-2],
+    ["Carlos Reis","(67) 98002-6674","Dell G15","Troca de SSD",420,"analise","Rafael",72],
+    ["Fernanda Rocha","(67) 97345-8890","iPad 9ª geração","Vidro do touch",390,"entregue","Paula",-48]
+  ];
+  let n = (await getDoc(lojaRef)).data().proximaOS || 1;
+  os.forEach(([cliente,telefone,aparelho,defeito,valor,status,tecnico,prazoH], i) => {
+    const hist = {}; STATUS.slice(0, STATUS.indexOf(status)+1).forEach((k,j) => hist[k] = ts(30 - j*4 - i));
+    const r = doc(col("os"));
+    b.set(r, { numero:n++, cliente, telefone, aparelho, imei:"", defeito, valor, status, tecnico, senha:"", obs:"", prazo: Timestamp.fromMillis(agora + prazoH*3600e3), historico:hist, criadoEm: ts(30+i), exemplo:true, ...(status==="entregue"?{entregueEm: ts(5)}:{}) });
+    if(status==="entregue") b.set(doc(col("lancamentos")), { data: ts(5), descricao:`OS #${String(n-1).padStart(4,"0")} · ${aparelho}`, categoria:"Serviço", forma:"Pix", valor, origem:"os", exemplo:true });
+  });
+  b.update(lojaRef, { proximaOS: n });
+  [["Película 3D","iPhone 13","acessorio",42,10,12,39.9],["Capa anti-impacto","Galaxy A54","acessorio",18,5,15,49.9],["Carregador USB-C 20W","Universal","acessorio",25,5,35,89.9],["Cabo Lightning 1 m","iPhone","acessorio",60,10,9,34.9],["Fone Bluetooth","Universal","acessorio",9,4,55,129.9],["Power bank 10.000 mAh","Universal","acessorio",7,3,70,149.9],
+   ["Tela OLED","iPhone 13","peca",2,3,310,0],["Bateria","Galaxy A54","peca",6,4,85,0],["Conector de carga","Moto G84","peca",1,3,22,0],["Flex Face ID","iPhone 12","peca",0,2,190,0],["SSD NVMe 512 GB","Notebooks","peca",4,2,240,0]]
+   .forEach(([nome,compativel,tipo,qtd,minimo,custo,preco]) => b.set(doc(col("produtos")), { nome, compativel, tipo, qtd, minimo, custo, preco, exemplo:true }));
+  [[2,"Fornecedor de peças","Compra de peças","Boleto",-1240],[30,"Aluguel da loja","Despesa fixa","Transferência",-3200],[1,"Venda balcão · 2× Película 3D","Acessórios","Cartão",79.8],[0,"Venda balcão · Carregador USB-C 20W","Acessórios","Pix",89.9]]
+   .forEach(([h,descricao,categoria,forma,valor]) => b.set(doc(col("lancamentos")), { data: ts(h), descricao, categoria, forma, valor, origem:"manual", exemplo:true }));
+  // meses anteriores para o gráfico
+  [[1,18400],[2,21300],[3,19800],[4,24600],[5,22100]].forEach(([m,v]) => { const d = new Date(); d.setMonth(d.getMonth()-m, 15); b.set(doc(col("lancamentos")), { data: Timestamp.fromDate(d), descricao:"Fechamento do mês (exemplo)", categoria:"Serviço", forma:"Vários", valor:v, origem:"manual", exemplo:true }); });
+  await b.commit(); toast("Dados de exemplo carregados"); S.view = "painel"; render();
+}
+async function limparExemplo(){
+  if(!confirmar("Apagar todos os dados marcados como exemplo?")) return;
+  const alvos = [...S.os.filter(o => o.exemplo).map(o => ["os",o.id]), ...S.produtos.filter(p => p.exemplo).map(p => ["produtos",p.id]), ...S.lanc.filter(l => l.exemplo).map(l => ["lancamentos",l.id])];
+  for(let i=0;i<alvos.length;i+=400){ const b = writeBatch(db); alvos.slice(i,i+400).forEach(([c,id]) => b.delete(doc(col(c), id))); await b.commit(); }
+  toast(`${alvos.length} registros de exemplo apagados`);
+}
+</script>
+</body>
+</html>
