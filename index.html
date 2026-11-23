@@ -201,6 +201,8 @@ tbody tr.click:hover{background:#fafaf7}
 </section>
 
 <!-- ============ APP ============ -->
+<section id="publico" class="hide" style="min-height:100vh;display:grid;place-items:center;padding:20px"></section>
+
 <div id="app" class="hide">
   <aside class="side" id="side">
     <div class="logo" style="padding:0 6px"><span class="sq">IV</span><div><b style="letter-spacing:.06em">IVIMPORTS</b><div style="font-size:11px;color:var(--cinza-2)">sistema <b style="color:var(--amarelo)">Bancada</b></div></div></div>
@@ -228,7 +230,7 @@ tbody tr.click:hover{background:#fafaf7}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, runTransaction, serverTimestamp, Timestamp, increment, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, runTransaction, serverTimestamp, Timestamp, increment, writeBatch, getDocs, query, where, orderBy, limit, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDS3wzf_Mpz6P2arzUH85e7MPl7I6YhPNQ",
@@ -243,7 +245,7 @@ const ADMIN = "jmarciel920@gmail.com";
 const GOOGLE_CLIENT_ID = "1045242548865-6tvhn5n1d2nenm8mvndl6jp6r0knuvai.apps.googleusercontent.com";
 const PASTA_BACKUP = "Backup Bancada IVIMPORTS";
 const MANTER_BACKUPS = 30;
-const COLECOES = ["os","produtos","lancamentos","vendas"];
+const COLECOES = ["os","produtos","lancamentos","vendas","contas","caixas"];
 
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
@@ -349,7 +351,9 @@ function telaBloqueio(titulo, texto, verif){
 $("#bloq-acao").onclick = async () => { if(auth.currentUser){ await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); iniciar(auth.currentUser); } };
 $("#bloq-reenviar").onclick = async () => { try { await sendEmailVerification(auth.currentUser); toast("E-mail reenviado"); } catch(err){ toast(traduz(err)); } };
 
-onAuthStateChanged(auth, u => { pararEscuta(); if(!u){ S.user = null; trocaModo(false); telaLogin(); return; } iniciar(u); });
+const TOKEN_APROVAR = new URLSearchParams(location.search).get("aprovar");
+if(TOKEN_APROVAR) telaAprovacao(TOKEN_APROVAR);
+onAuthStateChanged(auth, u => { if(TOKEN_APROVAR) return; pararEscuta(); if(!u){ S.user = null; trocaModo(false); telaLogin(); return; } iniciar(u); });
 
 async function iniciar(u){
   S.user = u;
@@ -383,6 +387,11 @@ function escutar(){
   S.unsub.push(onSnapshot(lojaRef, s => { S.loja = s.data() || S.loja; $("#loja-nome").textContent = S.loja.nome || "IVIMPORTS"; $("#loja-end").textContent = S.loja.endereco || ""; if(S.view === "config") render(); }, erro));
   S.unsub.push(onSnapshot(col("os"), s => { S.os = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (b.numero||0) - (a.numero||0)); render(); }, erro));
   S.unsub.push(onSnapshot(col("produtos"), s => { S.produtos = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => String(a.nome).localeCompare(b.nome)); render(); }, erro));
+  if(isDono()){
+    S.unsub.push(onSnapshot(col("contas"), s => { S.contas = s.docs.map(d => ({id:d.id, ...d.data()})); render(); }, erro));
+    S.unsub.push(onSnapshot(doc(col("caixas"), hojeId()), s => { S.caixa = s.exists() ? s.data() : null; if(S.view === "financeiro") render(); }, erro));
+  }
+  S.unsub.push(onSnapshot(query(collection(db, "aprovacoes"), where("loja", "==", LOJA), where("processado", "==", false)), s => processarAprovacoes(s.docs), erro));
   if(isDono()) S.unsub.push(onSnapshot(col("lancamentos"), s => { S.lanc = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (toDate(b.data)||0) - (toDate(a.data)||0)); render(); }, erro));
 }
 
@@ -417,7 +426,7 @@ const VIEWS = {
     const ticket = ent30.length ? ent30.reduce((s,o) => s + (o.valor||0), 0) / ent30.length : 0;
     const baixo = S.produtos.filter(p => (p.qtd||0) <= (p.minimo||0));
     const cols = ["analise","aprovacao","reparo","pronto"];
-    return `${isDono() && backupPendente() ? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amarelo-claro);border-color:#ffe07a;padding:14px 18px"><span><b>Backup de hoje pendente.</b> <span class="muted">Último: ${S.loja?.backup?.ultimo ? fmtHora(S.loja.backup.ultimo) : "nunca"} · Google Drive ${esc(S.loja?.backup?.conta||"")}</span></span><button class="btn btn-dark btn-sm" data-a="backup-drive">Fazer backup agora</button></div>` : ""}<div class="kpis">
+    return `${isDono() && backupPendente() ? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amarelo-claro);border-color:#ffe07a;padding:14px 18px"><span><b>Backup de hoje pendente.</b> <span class="muted">Último: ${S.loja?.backup?.ultimo ? fmtHora(S.loja.backup.ultimo) : "nunca"} · Google Drive ${esc(S.loja?.backup?.conta||"")}</span></span><button class="btn btn-dark btn-sm" data-a="backup-drive">Fazer backup agora</button></div>` : ""}${alertaContas()}<div class="kpis">
       <div class="card kpi"><span class="muted">OS abertas</span><div class="v">${abertas.length}</div><span class="tag t-amarela">${vencem} vencem hoje</span></div>
       <div class="card kpi"><span class="muted">Prontas p/ retirada</span><div class="v">${prontas.length}</div><span class="tag t-neutra">avise pelo WhatsApp</span></div>
       ${isDono() ? `<div class="card kpi"><span class="muted">Entradas hoje</span><div class="v">${brl(entradasHoje).replace(",00","")}</div><span class="tag t-neutra">caixa do dia</span></div>` : ""}
@@ -444,7 +453,7 @@ const VIEWS = {
       const cont = k => k==="todas" ? base.length : k==="abertas" ? base.filter(o => o.status!=="entregue").length : base.filter(o => o.status===k).length;
       const lista = base.filter(o => S.filtro==="todas" || (S.filtro==="abertas" ? o.status!=="entregue" : o.status===S.filtro));
       return `<div class="filtros">${filtros.map(([k,l]) => `<button class="pill ${S.filtro===k?"on":""}" data-a="filtro" data-f="${k}">${l} <span style="opacity:.6">${cont(k)}</span></button>`).join("")}</div>
-      <div class="card" style="padding:6px 16px;overflow-x:auto">${lista.length ? `<table><thead><tr><th>OS</th><th>Aparelho</th><th class="hide-mob">Defeito</th><th>Cliente</th><th class="hide-mob">Técnico</th><th>Prazo</th><th>Status</th><th class="num">Valor</th></tr></thead><tbody>${lista.map(o => `<tr class="click" data-a="abrir-os" data-id="${o.id}"><td class="muted">#${String(o.numero).padStart(4,"0")}</td><td><b>${esc(o.aparelho)}</b></td><td class="hide-mob">${esc(o.defeito)}</td><td>${esc(o.cliente)}</td><td class="hide-mob">${esc(o.tecnico||"—")}</td><td>${o.prazo?fmtData(o.prazo):"—"}</td><td><span class="tag ${STAG[o.status]}">${SL[o.status]}</span></td><td class="num">${brl(o.valor)}</td></tr>`).join("")}</tbody></table>` : `<div class="vazio">Nenhuma OS aqui. <a href="#" data-a="nova-os">Abrir nova OS</a></div>`}</div>`;
+      <div class="card" style="padding:6px 16px;overflow-x:auto">${lista.length ? `<table><thead><tr><th>OS</th><th>Aparelho</th><th class="hide-mob">Defeito</th><th>Cliente</th><th class="hide-mob">Técnico</th><th>Prazo</th><th>Status</th><th class="num">Valor</th></tr></thead><tbody>${lista.map(o => `<tr class="click" data-a="abrir-os" data-id="${o.id}"><td class="muted">#${String(o.numero).padStart(4,"0")}</td><td><b>${esc(o.aparelho)}</b>${o.garantiaDe ? ` <span class="tag t-amarela">Garantia</span>` : ""}</td><td class="hide-mob">${esc(o.defeito)}</td><td>${esc(o.cliente)}</td><td class="hide-mob">${esc(o.tecnico||"—")}</td><td>${o.prazo?fmtData(o.prazo):"—"}</td><td><span class="tag ${STAG[o.status]}">${SL[o.status]}</span></td><td class="num">${brl(o.valor)}</td></tr>`).join("")}</tbody></table>` : `<div class="vazio">Nenhuma OS aqui. <a href="#" data-a="nova-os">Abrir nova OS</a></div>`}</div>`;
     }
   },
 
@@ -457,6 +466,7 @@ const VIEWS = {
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:4px"><span>Total</span><span style="font-size:34px;font-weight:700">${brl(total)}</span></div>
       <label class="f">Cliente (opcional)<input class="input" id="pdv-cliente" placeholder="Consumidor"></label>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${["Pix","Cartão","Dinheiro"].map(f => `<button class="btn ${f==="Pix"?"btn-primary":""}" data-a="pagar" data-f="${f}" ${S.cart.length?"":"disabled"}>${f}</button>`).join("")}</div>
+      ${S.ultimaVenda ? `<div class="lista-linha" style="font-size:13px"><span class="muted">Última venda: ${brl(S.ultimaVenda.total)} · ${esc(S.ultimaVenda.forma)}</span><button class="btn btn-sm" data-a="recibo-venda">Imprimir recibo</button></div>` : ""}
     </div></div>`;
   }},
 
@@ -484,7 +494,7 @@ const VIEWS = {
   }},
 
   financeiro: {
-    acoes(){ return `<div style="display:flex;gap:8px"><button class="btn" data-a="novo-lanc" data-t="entrada">+ Entrada</button><button class="btn btn-dark" data-a="novo-lanc" data-t="saida">+ Saída</button></div>`; },
+    acoes(){ return `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-a="nova-conta">+ Conta a pagar</button><button class="btn" data-a="novo-lanc" data-t="entrada">+ Entrada</button><button class="btn btn-dark" data-a="novo-lanc" data-t="saida">+ Saída</button></div>`; },
     html(){
       const hoje = new Date(), mes = hoje.getMonth(), ano = hoje.getFullYear();
       const doMes = S.lanc.filter(l => { const d = toDate(l.data); return d && d.getMonth()===mes && d.getFullYear()===ano; });
@@ -492,7 +502,7 @@ const VIEWS = {
       const ent = doMes.filter(l => l.valor>0).reduce((s,l) => s+l.valor, 0), sai = doMes.filter(l => l.valor<0).reduce((s,l) => s+l.valor, 0);
       const areceber = S.os.filter(o => o.status==="pronto").reduce((s,o) => s+(o.valor||0), 0);
       const lista = filtraBusca(S.lanc, ["descricao","categoria","forma"]);
-      return `<div class="kpis"><div class="card kpi"><span class="muted">Caixa de hoje</span><div class="v">${brl(caixaHoje)}</div></div><div class="card kpi"><span class="muted">A receber (OS prontas)</span><div class="v">${brl(areceber)}</div></div><div class="card kpi"><span class="muted">Saldo do mês</span><div class="v">${brl(ent+sai)}</div><span class="tag t-neutra">${brl(ent)} entradas · ${brl(-sai)} saídas</span></div></div>
+      return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:20px;align-items:start">${blocoCaixa()}${blocoContas()}</div><div class="kpis"><div class="card kpi"><span class="muted">Entradas e saídas de hoje</span><div class="v">${brl(caixaHoje)}</div></div><div class="card kpi"><span class="muted">A receber (OS prontas)</span><div class="v">${brl(areceber)}</div></div><div class="card kpi"><span class="muted">Saldo do mês</span><div class="v">${brl(ent+sai)}</div><span class="tag t-neutra">${brl(ent)} entradas · ${brl(-sai)} saídas</span></div></div>
       <div class="card" style="padding:6px 16px;overflow-x:auto">${lista.length ? `<table><thead><tr><th>Data</th><th>Descrição</th><th class="hide-mob">Categoria</th><th class="hide-mob">Forma</th><th class="num">Valor</th><th></th></tr></thead><tbody>${lista.slice(0,200).map(l => `<tr><td>${fmtData(l.data)}</td><td>${esc(l.descricao)}</td><td class="hide-mob">${esc(l.categoria||"")}</td><td class="hide-mob">${esc(l.forma||"")}</td><td class="num" style="color:${l.valor<0?"var(--vermelho)":"var(--verde)"}">${l.valor<0?"− ":"+ "}${brl(Math.abs(l.valor))}</td><td class="num"><button class="btn btn-sm btn-ghost btn-danger" data-a="del-lanc" data-id="${l.id}" title="Excluir">×</button></td></tr>`).join("")}</tbody></table>` : `<div class="vazio">Sem lançamentos. Vendas no PDV e OS entregues entram aqui automaticamente.</div>`}</div>`;
     }
   },
@@ -508,6 +518,7 @@ const VIEWS = {
     const rec = ent.reduce((s,o) => s + (o.valor||0), 0), cus = ent.reduce((s,o) => s + (o.pecas||[]).reduce((a,p) => a + (p.custo||0)*(p.qtd||1), 0), 0);
     const tec = {}; S.os.filter(o => o.status==="entregue").forEach(o => { const k = o.tecnico||"—"; tec[k] = (tec[k]||0) + (o.valor||0); });
     return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:24px;align-items:start">
+      ${blocoContabil()}
       <div class="card" style="display:flex;flex-direction:column;gap:14px"><h3 style="font-size:20px">Entradas por mês</h3><div class="barras">${meses.map((m,i) => `<div><span>${m.v?(m.v>=1000?"R$ "+(m.v/1000).toFixed(1).replace(".",",")+"k":brl(m.v)):""}</span><i class="${i===5?"on":""}" style="height:${m.v/max*100}%"></i></div>`).join("")}</div><div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px">${meses.map(m => `<span class="muted" style="font-size:12px;text-align:center">${m.label}</span>`).join("")}</div></div>
       <div class="card" style="display:flex;flex-direction:column;gap:14px"><h3 style="font-size:20px">Defeitos mais comuns</h3>${defs.map(([k,n]) => `<div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(k)}</span><b>${n}</b></div><div class="trilho"><i style="width:${n/dmax*100}%"></i></div></div>`).join("") || `<span class="muted">Sem OS ainda.</span>`}</div>
       <div class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:20px">Lucro dos serviços (OS entregues)</h3><div class="lista-linha"><span>Receita</span><b>${brl(rec)}</b></div><div class="lista-linha"><span>Custo das peças lançadas</span><b>${brl(cus)}</b></div><div class="lista-linha"><span>Lucro bruto</span><b style="color:var(--verde)">${brl(rec-cus)}</b></div><span class="muted" style="font-size:12px">Considera só as peças lançadas na OS.</span></div>
@@ -529,6 +540,7 @@ const VIEWS = {
           <label class="f">Nome<input class="input" id="lj-nome" value="${esc(S.loja?.nome)}"></label>
           <label class="f">Endereço<input class="input" id="lj-end" value="${esc(S.loja?.endereco)}"></label>
           <label class="f">Garantia padrão (texto no aviso de retirada)<input class="input" id="lj-gar" value="${esc(S.loja?.garantia || "90 dias de garantia no serviço")}"></label>
+          <label class="f">Prazo de garantia (dias)<input class="input" id="lj-gdias" inputmode="numeric" value="${S.loja?.garantiaDias ?? 90}"></label>
           <div><button class="btn btn-dark">Salvar</button></div>
         </form>
       </div>
@@ -538,6 +550,7 @@ const VIEWS = {
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="backup-drive">${S.loja?.backup?.conta ? "Fazer backup agora" : "Conectar Google Drive e fazer backup"}</button>${S.loja?.backup?.conta ? `<button class="btn" data-a="listar-backups">Ver backups / restaurar</button>` : ""}<button class="btn btn-ghost" data-a="backup-local">Baixar cópia no computador</button><label class="btn btn-ghost" style="cursor:pointer">Restaurar de arquivo<input type="file" accept=".json,application/json" id="arquivo-restaurar" hidden></label></div>
         <div id="lista-backups"></div>
       </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px;grid-column:1/-1"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h3 style="font-size:20px">Histórico de ações</h3><button class="btn btn-sm" data-a="ver-log">Carregar últimas 100</button></div><p class="muted" style="margin:0;font-size:14px">Quem abriu, alterou, entregou ou excluiu OS, vendas, estoque e lançamentos.</p><div id="lista-log" style="overflow-x:auto"></div></div>
       ${isAdmin() ? `<div class="card" style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:20px">Demonstração</h3><p class="muted" style="margin:0;font-size:14px">Carrega OS, produtos e lançamentos fictícios para mostrar o sistema. Dá para apagar depois.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-a="exemplo">Carregar dados de exemplo</button><button class="btn btn-danger" data-a="limpar-exemplo">Apagar dados de exemplo</button></div></div>` : ""}
     </div>`;
   }}
@@ -595,14 +608,19 @@ function renderCamada(){
       <div class="cab"><div><div class="kicker" style="color:var(--cinza)">Ordem de serviço</div><div style="font-size:30px;font-weight:700">#${String(o.numero).padStart(4,"0")}</div><span class="tag ${STAG[o.status]}">${SL[o.status]}</span></div><button class="btn btn-sm" data-a="fechar-os">×</button></div>
       <div class="corpo">
         <div class="infos"><div><span>Aparelho</span>${esc(o.aparelho)}</div><div><span>IMEI / série</span>${esc(o.imei||"—")}</div><div><span>Cliente</span>${esc(o.cliente)}<span>${esc(o.telefone||"")}</span></div><div><span>Defeito</span>${esc(o.defeito)}</div><div><span>Valor</span><b>${brl(o.valor)}</b></div><div><span>Técnico · prazo</span>${esc(o.tecnico||"—")} · ${o.prazo?fmtData(o.prazo):"—"}</div>${o.obs?`<div style="grid-column:1/-1"><span>Observações / checklist de entrada</span>${esc(o.obs)}</div>`:""}</div>
+        ${o.garantiaDe ? `<div class="msg info">Retorno em garantia da OS #${String(o.garantiaDe.numero).padStart(4,"0")}.</div>` : ""}
+        ${blocoGarantia(o)}${blocoAprovacao(o)}
         ${blocoPecas(o)}
+        ${blocoFotos(o)}
         <div><div class="kicker" style="color:var(--cinza);padding-bottom:10px">Andamento</div>${STATUS.map((k,i) => `<div class="passo"><div class="d"><i class="${i<=si?"on":""}"></i>${i<STATUS.length-1?"<s></s>":""}</div><span style="padding-bottom:12px;color:${i<=si?"var(--texto)":"var(--cinza-2)"}">${SL[k]}</span><span class="muted" style="font-size:12px">${fmtHora(o.historico?.[k])}</span></div>`).join("")}</div>
+        ${(o.eventos||[]).length ? `<details><summary class="muted" style="cursor:pointer;font-size:13px">Histórico desta OS (${o.eventos.length})</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;font-size:13px">${o.eventos.slice().reverse().map(e => `<div><span class="muted">${fmtHora(e.quando)} · ${esc(e.por)}</span> — ${esc(e.acao)}</div>`).join("")}</div></details>` : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${si < STATUS.length-1 ? `<button class="btn btn-primary" data-a="avancar">${o.status==="pronto" ? "Entregar e receber" : "Avançar para " + SL[STATUS[si+1]]}</button>` : ""}
           ${si > 0 && o.status!=="entregue" ? `<button class="btn" data-a="voltar">Voltar etapa</button>` : ""}
           <button class="btn" data-a="editar-os">Editar</button>
           ${tel.length>=10 ? `<a class="btn" target="_blank" rel="noopener" href="https://wa.me/55${tel}?text=${encodeURIComponent(msg)}">Avisar no WhatsApp</a>` : ""}
-          <button class="btn btn-ghost" data-a="imprimir-os">Imprimir</button>
+          <button class="btn btn-ghost" data-a="imprimir-os">Imprimir A4</button>
+          <button class="btn btn-ghost" data-a="imprimir-80">${o.status==="entregue" ? "Recibo + garantia 80mm" : "Comprovante 80mm"}</button>
         </div>
         ${tel.length>=10 ? `<div style="display:flex;flex-direction:column;gap:6px"><span class="muted" style="font-size:12px">Mensagem que vai no WhatsApp</span><div style="background:var(--amarelo-claro);border-radius:14px;padding:12px 14px;font-size:14px">${esc(msg)}</div></div>` : ""}
         ${isDono() ? `<button class="btn btn-ghost btn-danger" style="align-self:flex-start" data-a="excluir-os">Excluir OS</button>` : ""}
@@ -651,6 +669,7 @@ function formLanc(tipo){
     <label class="f">Data<input class="input" type="date" name="data" value="${new Date().toISOString().slice(0,10)}"></label>
     <label class="f">Categoria<input class="input" name="categoria" list="cats" placeholder="${tipo==="saida"?"Compra de peças":"Serviço"}"><datalist id="cats"><option>Serviço</option><option>Acessórios</option><option>Compra de peças</option><option>Despesa fixa</option><option>Pessoal</option><option>Impostos</option></datalist></label>
     <label class="f">Forma<select class="input" name="forma"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Boleto</option><option>Transferência</option></select></label>
+    ${tipo==="saida" ? "" : `<label class="f span2">Tipo de receita (para a contabilidade)<select class="input" name="tipoReceita"><option value="servico">Prestação de serviço</option><option value="mercadoria">Venda de mercadoria</option><option value="outra">Outra entrada (não é receita de venda)</option></select></label>`}
     <div class="acoes span2"><button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">Salvar</button></div>
   </form>`;
 }
@@ -676,32 +695,48 @@ document.addEventListener("click", async e => {
       case "sair": pararEscuta(); await signOut(auth); break;
       case "modo-os": S.modoOS = t.dataset.m; render(); break;
       case "filtro": S.filtro = t.dataset.f; render(); break;
-      case "abrir-os": S.sel = t.dataset.id; renderCamada(); break;
+      case "abrir-os": S.sel = t.dataset.id; renderCamada(); carregarFotos(S.sel); break;
+      case "imprimir-80": imprimir80OS(S.os.find(x => x.id === S.sel)); break;
+      case "recibo-venda": imprimir80Venda(S.ultimaVenda); break;
+      case "enviar-aprovacao": await enviarAprovacao(S.os.find(x => x.id === S.sel)); break;
+      case "termo-garantia": imprimirTermo(S.os.find(x => x.id === S.sel)); break;
+      case "retorno-garantia": { const o = S.os.find(x => x.id === S.sel); NOVA_GARANTIA = { id:o.id, numero:o.numero }; MODAL = formOS({ cliente:o.cliente, telefone:o.telefone, aparelho:o.aparelho, imei:o.imei, defeito:"Retorno em garantia: " + (o.defeito||""), valor:0, tecnico:o.tecnico }); renderCamada(); break; }
+      case "ver-foto": verFoto(t.dataset.id); break;
+      case "del-foto": if(confirmar("Excluir esta foto?")){ await deleteDoc(doc(col("fotos"), t.dataset.id)); logar("Foto excluída", numOS(S.os.find(x => x.id === S.sel))); carregarFotos(S.sel); } break;
+      case "nova-conta": MODAL = formConta(); renderCamada(); break;
+      case "pagar-conta": MODAL = formPagarConta(S.contas.find(c => c.id === t.dataset.id)); renderCamada(); break;
+      case "del-conta": { const c = S.contas.find(x => x.id === t.dataset.id); if(confirmar(`Excluir a conta "${c.descricao}"?`)){ await deleteDoc(doc(col("contas"), c.id)); logar("Conta a pagar excluída", c.descricao, brl(c.valor)); } break; }
+      case "sangria": MODAL = `<h2 style="font-size:24px">Sangria de caixa</h2><p class="muted" style="margin:0">Retirada de dinheiro da gaveta (ex.: levar para o cofre ou banco).</p><form id="f-sangria" class="grid2"><label class="f">Valor (R$)<input class="input" name="valor" required inputmode="decimal"></label><label class="f">Motivo<input class="input" name="motivo" placeholder="Depósito no banco"></label><div class="acoes span2"><button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">Registrar</button></div></form>`; renderCamada(); break;
+      case "fechar-caixa": { const r = resumoCaixa(); MODAL = `<h2 style="font-size:24px">Fechar caixa de hoje</h2><div class="infos"><div><span>Dinheiro esperado na gaveta</span><b>${brl(r.esperado)}</b></div><div><span>Pix · Cartão (conferir no extrato)</span>${brl(r.porForma.Pix||0)} · ${brl(r.porForma["Cartão"]||0)}</div></div><form id="f-fechar-caixa" class="grid2"><label class="f">Dinheiro contado na gaveta (R$)<input class="input" name="contado" required inputmode="decimal"></label><label class="f">Observação<input class="input" name="obs" placeholder="opcional"></label><div class="acoes span2"><button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">Fechar caixa</button></div></form>`; renderCamada(); break; }
+      case "reabrir-caixa": if(confirmar("Reabrir o caixa de hoje?")){ await updateDoc(doc(col("caixas"), hojeId()), { fechado:false }); logar("Caixa reaberto", hojeId()); } break;
+      case "csv-contabil": baixarCSVContabil(); break;
+      case "imprimir-contabil": imprimirContabil(); break;
+      case "ver-log": await verLog(); break;
       case "fechar-os": S.sel = null; renderCamada(); break;
       case "fechar-modal": MODAL = null; renderCamada(); break;
-      case "nova-os": MODAL = formOS(); renderCamada(); setTimeout(() => $("#f-os [name=cliente]")?.focus(), 30); break;
+      case "nova-os": NOVA_GARANTIA = null; MODAL = formOS(); renderCamada(); setTimeout(() => $("#f-os [name=cliente]")?.focus(), 30); break;
       case "editar-os": MODAL = formOS(S.os.find(x => x.id === S.sel)); renderCamada(); break;
       case "avancar": {
         const o = S.os.find(x => x.id === S.sel); const prox = STATUS[STATUS.indexOf(o.status)+1];
         if(prox === "entregue"){ MODAL = formEntrega(o); renderCamada(); break; }
-        await updateDoc(doc(col("os"), o.id), { status:prox, ["historico."+prox]: serverTimestamp() });
+        await updateDoc(doc(col("os"), o.id), { status:prox, ["historico."+prox]: serverTimestamp(), eventos: evento(SL[prox]) }); logar("OS: " + SL[prox], numOS(o), o.aparelho);
         toast(`OS #${String(o.numero).padStart(4,"0")}: ${SL[prox]}`); break;
       }
-      case "add-peca": await addPeca(); break;
-      case "rm-peca": await rmPeca(+t.dataset.i); break;
-      case "voltar": { const o = S.os.find(x => x.id === S.sel); const ant = STATUS[STATUS.indexOf(o.status)-1]; await updateDoc(doc(col("os"), o.id), { status:ant }); break; }
-      case "excluir-os": { const o = S.os.find(x => x.id === S.sel); if(confirmar(`Excluir a OS #${String(o.numero).padStart(4,"0")}? Não dá para desfazer.`)){ await deleteDoc(doc(col("os"), o.id)); S.sel = null; renderCamada(); toast("OS excluída"); } break; }
+      case "add-peca": await addPeca(); logar("Peça lançada na OS", numOS(S.os.find(x => x.id === S.sel))); break;
+      case "rm-peca": await rmPeca(+t.dataset.i); logar("Peça devolvida ao estoque", numOS(S.os.find(x => x.id === S.sel))); break;
+      case "voltar": { const o = S.os.find(x => x.id === S.sel); const ant = STATUS[STATUS.indexOf(o.status)-1]; await updateDoc(doc(col("os"), o.id), { status:ant, eventos: evento("Voltou para " + SL[ant]) }); logar("OS voltou etapa", numOS(o), SL[ant]); break; }
+      case "excluir-os": { const o = S.os.find(x => x.id === S.sel); if(confirmar(`Excluir a OS #${String(o.numero).padStart(4,"0")}? Não dá para desfazer.`)){ await deleteDoc(doc(col("os"), o.id)); logar("OS excluída", numOS(o), `${o.aparelho} · ${o.cliente}`); S.sel = null; renderCamada(); toast("OS excluída"); } break; }
       case "imprimir-os": imprimirOS(S.os.find(x => x.id === S.sel)); break;
       case "novo-prod": MODAL = formProd(); renderCamada(); break;
       case "edit-prod": MODAL = formProd(S.produtos.find(p => p.id === t.dataset.id)); renderCamada(); break;
-      case "del-prod": if(confirmar("Excluir este item do estoque?")){ await deleteDoc(doc(col("produtos"), t.dataset.id)); MODAL = null; renderCamada(); toast("Item excluído"); } break;
+      case "del-prod": if(confirmar("Excluir este item do estoque?")){ await deleteDoc(doc(col("produtos"), t.dataset.id)); logar("Item de estoque excluído", S.produtos.find(p => p.id === t.dataset.id)?.nome || ""); MODAL = null; renderCamada(); toast("Item excluído"); } break;
       case "add-cart": { const p = S.produtos.find(x => x.id === t.dataset.id); const c = S.cart.find(x => x.id === p.id);
         if(c){ if(c.qtd >= (p.qtd||0)){ toast("Sem mais unidades em estoque"); break; } c.qtd++; } else S.cart.push({id:p.id, nome:p.nome, preco:p.preco, qtd:1}); render(); break; }
       case "rm-cart": S.cart.splice(+t.dataset.i, 1); render(); break;
       case "pagar": await pagar(t.dataset.f); break;
       case "novo-lanc": MODAL = formLanc(t.dataset.t); renderCamada(); break;
-      case "del-lanc": if(confirmar("Excluir este lançamento?")){ await deleteDoc(doc(col("lancamentos"), t.dataset.id)); toast("Lançamento excluído"); } break;
-      case "rm-membro": if(confirmar(`Remover ${t.dataset.e} da equipe?`)){ await updateDoc(lojaRef, { equipe: (S.loja.equipe||[]).filter(x => x !== t.dataset.e) }); toast("Removido"); } break;
+      case "del-lanc": if(confirmar("Excluir este lançamento?")){ const l = S.lanc.find(x => x.id === t.dataset.id); await deleteDoc(doc(col("lancamentos"), t.dataset.id)); logar("Lançamento excluído", l?.descricao || "", brl(l?.valor)); toast("Lançamento excluído"); } break;
+      case "rm-membro": if(confirmar(`Remover ${t.dataset.e} da equipe?`)){ await updateDoc(lojaRef, { equipe: (S.loja.equipe||[]).filter(x => x !== t.dataset.e) }); logar("Membro removido da equipe", t.dataset.e); toast("Removido"); } break;
       case "exemplo": await carregarExemplo(); break;
       case "backup-drive": await backupDrive(t); break;
       case "listar-backups": await listarBackups(); break;
@@ -722,10 +757,11 @@ document.addEventListener("submit", async e => {
       const dados = { cliente:v.cliente.trim(), telefone:v.telefone.trim(), aparelho:v.aparelho.trim(), imei:v.imei.trim(), defeito:v.defeito.trim(),
         valor:num(v.valor), prazo: v.prazo ? Timestamp.fromDate(new Date(v.prazo+"T18:00:00")) : null, tecnico:v.tecnico.trim(), senha:v.senha.trim(), obs:v.obs.trim() };
       const atual = S.sel && MODAL && MODAL.startsWith("<h2") && MODAL.includes("Editar OS") ? S.os.find(x => x.id === S.sel) : null;
-      if(atual){ await updateDoc(doc(col("os"), atual.id), dados); toast("OS atualizada"); }
+      if(atual){ await updateDoc(doc(col("os"), atual.id), { ...dados, eventos: evento("Editada") }); logar("OS editada", numOS(atual), dados.aparelho); toast("OS atualizada"); }
       else {
         const numero = await runTransaction(db, async tx => { const s = await tx.get(lojaRef); const n = s.data().proximaOS || 1; tx.update(lojaRef, { proximaOS: n+1 }); return n; });
-        const ref = await addDoc(col("os"), { ...dados, numero, status:"recebido", historico:{ recebido: serverTimestamp() }, criadoEm: serverTimestamp(), criadoPor: S.user.email });
+        const ref = await addDoc(col("os"), { ...dados, numero, status:"recebido", historico:{ recebido: serverTimestamp() }, criadoEm: serverTimestamp(), criadoPor: S.user.email, eventos:[{ quando: Timestamp.now(), por: meuEmail(), acao: "Aberta" }], ...(NOVA_GARANTIA ? { garantiaDe: NOVA_GARANTIA } : {}) });
+        logar(NOVA_GARANTIA ? "Retorno em garantia aberto" : "OS aberta", "#" + String(numero).padStart(4,"0"), dados.aparelho); NOVA_GARANTIA = null;
         S.sel = ref.id; toast(`OS #${String(numero).padStart(4,"0")} aberta`);
       }
       MODAL = null; renderCamada();
@@ -733,28 +769,57 @@ document.addEventListener("submit", async e => {
     if(f.id === "f-entrega"){
       const o = S.os.find(x => x.id === S.sel); const valor = num(v.valor);
       const b = writeBatch(db);
-      b.update(doc(col("os"), o.id), { status:"entregue", valor, "historico.entregue": serverTimestamp(), entregueEm: serverTimestamp(), formaPagamento: v.forma });
-      if(valor > 0) b.set(doc(col("lancamentos")), { data: serverTimestamp(), descricao:`OS #${String(o.numero).padStart(4,"0")} · ${o.aparelho}`, categoria:"Serviço", forma:v.forma, valor, origem:"os", osId:o.id });
-      await b.commit(); MODAL = null; renderCamada(); toast("OS entregue e valor lançado no caixa");
+      const dias = S.loja?.garantiaDias ?? 90;
+      b.update(doc(col("os"), o.id), { status:"entregue", valor, "historico.entregue": serverTimestamp(), entregueEm: serverTimestamp(), formaPagamento: v.forma, garantiaAte: Timestamp.fromMillis(Date.now() + dias*864e5), eventos: evento(`Entregue · ${brl(valor)} no ${v.forma}`) });
+      if(valor > 0) b.set(doc(col("lancamentos")), { data: serverTimestamp(), descricao:`OS #${String(o.numero).padStart(4,"0")} · ${o.aparelho}`, categoria:"Serviço", forma:v.forma, valor, origem:"os", tipoReceita:"servico", osId:o.id });
+      await b.commit(); logar("OS entregue", numOS(o), `${brl(valor)} · ${v.forma}`); MODAL = null; renderCamada(); toast("OS entregue e valor lançado no caixa");
     }
     if(f.id === "f-prod"){
       const dados = { nome:v.nome.trim(), compativel:v.compativel.trim(), tipo:v.tipo, qtd:Math.round(num(v.qtd)), minimo:Math.round(num(v.minimo)), custo:num(v.custo), preco:num(v.preco) };
       const editando = MODAL.includes("Editar item") ? f.querySelector("[data-a=del-prod]")?.dataset.id : null;
       if(editando) await updateDoc(doc(col("produtos"), editando), dados); else await addDoc(col("produtos"), dados);
+      logar(editando ? "Item de estoque alterado" : "Item de estoque cadastrado", dados.nome, `qtd ${dados.qtd}`);
       MODAL = null; renderCamada(); toast("Estoque salvo");
     }
     if(f.id === "f-lanc"){
       const sinal = f.dataset.t === "saida" ? -1 : 1;
-      await addDoc(col("lancamentos"), { data: Timestamp.fromDate(new Date(v.data+"T12:00:00")), descricao:v.descricao.trim(), categoria:v.categoria.trim(), forma:v.forma, valor: sinal*Math.abs(num(v.valor)), origem:"manual" });
+      await addDoc(col("lancamentos"), { data: Timestamp.fromDate(new Date(v.data+"T12:00:00")), descricao:v.descricao.trim(), categoria:v.categoria.trim(), forma:v.forma, valor: sinal*Math.abs(num(v.valor)), origem:"manual", ...(sinal > 0 ? { tipoReceita: v.tipoReceita || "outra" } : {}) });
+      logar(sinal > 0 ? "Entrada lançada" : "Saída lançada", v.descricao.trim(), brl(num(v.valor)));
       MODAL = null; renderCamada(); toast("Lançamento salvo");
     }
     if(f.id === "f-membro"){
       const em = $("#novo-membro").value.trim().toLowerCase();
       if(!(S.loja.equipe||[]).includes(em)) await updateDoc(lojaRef, { equipe:[...(S.loja.equipe||[]), em] });
-      toast("Adicionado à equipe");
+      logar("Membro adicionado à equipe", em); toast("Adicionado à equipe");
+    }
+    if(f.id === "f-conta"){
+      await addDoc(col("contas"), { descricao:v.descricao.trim(), fornecedor:v.fornecedor.trim(), valor:Math.abs(num(v.valor)), vencimento: Timestamp.fromDate(new Date(v.vencimento+"T12:00:00")), categoria:v.categoria.trim() || "Despesa", recorrente: v.recorrente === "on", pago:false, criadoEm: serverTimestamp() });
+      logar("Conta a pagar cadastrada", v.descricao.trim(), brl(num(v.valor))); MODAL = null; renderCamada(); toast("Conta cadastrada");
+    }
+    if(f.id === "f-pagar-conta"){
+      const c = S.contas.find(x => x.id === f.dataset.id); const valor = Math.abs(num(v.valor));
+      const b = writeBatch(db);
+      b.update(doc(col("contas"), c.id), { pago:true, pagoEm: Timestamp.fromDate(new Date(v.data+"T12:00:00")), formaPagamento: v.forma, valorPago: valor });
+      b.set(doc(col("lancamentos")), { data: Timestamp.fromDate(new Date(v.data+"T12:00:00")), descricao:`Conta paga · ${c.descricao}${c.fornecedor?" ("+c.fornecedor+")":""}`, categoria:c.categoria||"Despesa", forma:v.forma, valor:-valor, origem:"conta", contaId:c.id });
+      if(c.recorrente){ const d = toDate(c.vencimento); const prox = new Date(d.getFullYear(), d.getMonth()+1, d.getDate(), 12); b.set(doc(col("contas")), { descricao:c.descricao, fornecedor:c.fornecedor||"", valor:c.valor, vencimento: Timestamp.fromDate(prox), categoria:c.categoria||"Despesa", recorrente:true, pago:false, criadoEm: serverTimestamp() }); }
+      await b.commit(); logar("Conta paga", c.descricao, `${brl(valor)} · ${v.forma}`); MODAL = null; renderCamada(); toast(c.recorrente ? "Conta paga · próximo mês já agendado" : "Conta paga e lançada no financeiro");
+    }
+    if(f.id === "f-abrir-caixa"){
+      await setDoc(doc(col("caixas"), hojeId()), { data: hojeId(), saldoInicial: num(v.saldo), abertoEm: serverTimestamp(), abertoPor: meuEmail(), sangrias: [], fechado:false });
+      logar("Caixa aberto", hojeId(), brl(num(v.saldo))); toast("Caixa aberto");
+    }
+    if(f.id === "f-sangria"){
+      await updateDoc(doc(col("caixas"), hojeId()), { sangrias: arrayUnion({ valor: Math.abs(num(v.valor)), motivo: v.motivo.trim(), quando: Timestamp.now(), por: meuEmail() }) });
+      logar("Sangria de caixa", v.motivo.trim(), brl(num(v.valor))); MODAL = null; renderCamada(); toast("Sangria registrada");
+    }
+    if(f.id === "f-fechar-caixa"){
+      const r = resumoCaixa(); const contado = num(v.contado);
+      await updateDoc(doc(col("caixas"), hojeId()), { fechado:true, fechadoEm: serverTimestamp(), fechadoPor: meuEmail(), contadoDinheiro: contado, esperadoDinheiro: r.esperado, diferenca: contado - r.esperado, porForma: r.porForma, obs: v.obs.trim() });
+      logar("Caixa fechado", hojeId(), `diferença ${brl(contado - r.esperado)}`); MODAL = null; renderCamada(); toast("Caixa fechado");
     }
     if(f.id === "f-loja"){
-      await updateDoc(lojaRef, { nome:$("#lj-nome").value.trim(), endereco:$("#lj-end").value.trim(), garantia:$("#lj-gar").value.trim() });
+      await updateDoc(lojaRef, { nome:$("#lj-nome").value.trim(), endereco:$("#lj-end").value.trim(), garantia:$("#lj-gar").value.trim(), garantiaDias: Math.max(0, Math.round(num($("#lj-gdias").value))) });
+      logar("Dados da loja alterados");
       toast("Dados da loja salvos");
     }
   } catch(err){ console.error(err); toast(traduz(err)); }
@@ -779,8 +844,10 @@ async function pagar(forma){
     snaps.forEach((s,i) => tx.update(refs[i], { qtd: increment(-S.cart[i].qtd) }));
     const venda = doc(col("vendas"));
     tx.set(venda, { data: serverTimestamp(), itens: S.cart, total, forma, cliente, por: S.user.email });
-    tx.set(doc(col("lancamentos")), { data: serverTimestamp(), descricao:`Venda balcão · ${S.cart.map(c => c.qtd+"× "+c.nome).join(", ")}`.slice(0,140), categoria:"Acessórios", forma, valor: total, origem:"pdv", vendaId: venda.id });
+    tx.set(doc(col("lancamentos")), { data: serverTimestamp(), descricao:`Venda balcão · ${S.cart.map(c => c.qtd+"× "+c.nome).join(", ")}`.slice(0,140), categoria:"Acessórios", forma, valor: total, origem:"pdv", tipoReceita:"mercadoria", vendaId: venda.id });
   });
+  S.ultimaVenda = { itens: S.cart.map(c => ({...c})), total, forma, cliente, data: new Date() };
+  logar("Venda no balcão", brl(total), `${forma} · ${S.cart.map(c => c.qtd+"× "+c.nome).join(", ")}`.slice(0,200));
   S.cart = []; render(); toast(`Venda de ${brl(total)} registrada (${forma})`);
 }
 
@@ -793,6 +860,303 @@ function imprimirOS(o){
   <div class="ass"><div>Assinatura do cliente</div><div>${esc(S.loja?.nome||"IVIMPORTS")}</div></div>
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
+}
+
+/* ---------- utilidades novas ---------- */
+S.contas = []; S.caixa = null; S.fotos = {}; S.ultimaVenda = null; S.mesRel = new Date().toISOString().slice(0,7);
+let NOVA_GARANTIA = null;
+const meuEmail = () => (S.user?.email || "").toLowerCase();
+const numOS = o => o ? "#" + String(o.numero).padStart(4,"0") : "";
+const evento = acao => arrayUnion({ quando: Timestamp.now(), por: meuEmail(), acao });
+const hojeId = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const fmtDataLonga = t => { const d = toDate(t); return d ? d.toLocaleDateString("pt-BR") : "—"; };
+async function logar(acao, alvo = "", detalhe = ""){
+  try { await addDoc(col("log"), { quando: serverTimestamp(), por: meuEmail(), acao, alvo: String(alvo||""), detalhe: String(detalhe||"") }); }
+  catch(e){ console.warn("histórico não gravado", e); }
+}
+
+/* ---------- histórico de ações (3) ---------- */
+async function verLog(){
+  const box = $("#lista-log"); box.innerHTML = `<span class="muted" style="font-size:14px">Carregando…</span>`;
+  const snap = await getDocs(query(col("log"), orderBy("quando", "desc"), limit(100)));
+  box.innerHTML = snap.docs.length ? `<table><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Detalhe</th></tr></thead><tbody>${snap.docs.map(d => { const l = d.data(); return `<tr><td style="white-space:nowrap">${fmtHora(l.quando)}</td><td>${esc(l.por)}</td><td><b>${esc(l.acao)}</b> ${esc(l.alvo)}</td><td class="muted">${esc(l.detalhe)}</td></tr>`; }).join("")}</tbody></table>` : `<span class="muted" style="font-size:14px">Nenhuma ação registrada ainda.</span>`;
+}
+
+/* ---------- aprovação de orçamento pelo cliente (5) ---------- */
+function blocoAprovacao(o){
+  if(o.status === "entregue" || o.status === "pronto" || o.garantiaDe) return "";
+  const ap = o.aprovacao;
+  const tel = soDigitos(o.telefone);
+  const st = !ap ? "" : ap.status === "aprovado" ? `<span class="tag t-verde">Aprovado pelo cliente ${fmtHora(ap.respondidoEm)}</span>` : ap.status === "recusado" ? `<span class="tag t-vermelha">Recusado pelo cliente ${fmtHora(ap.respondidoEm)}</span>` : `<span class="tag t-amarela">Aguardando o cliente responder</span>`;
+  const pode = (o.valor||0) > 0 && tel.length >= 10 && (!ap || ap.status !== "aprovado");
+  return `<div style="display:flex;flex-direction:column;gap:8px"><div class="kicker" style="color:var(--cinza)">Aprovação do orçamento</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${st}${pode ? `<button class="btn btn-sm btn-primary" data-a="enviar-aprovacao">${ap ? "Reenviar link de aprovação" : "Enviar orçamento para aprovação"}</button>` : ""}</div>
+    ${!pode && !ap ? `<span class="muted" style="font-size:13px">Informe o valor e o WhatsApp do cliente para enviar o orçamento.</span>` : ""}</div>`;
+}
+async function enviarAprovacao(o){
+  const janela = window.open("", "_blank");
+  try {
+    const tok = (o.aprovacao && o.aprovacao.status === "pendente" && o.aprovacao.token) || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
+    await setDoc(doc(db, "aprovacoes", tok), { loja: LOJA, lojaNome: S.loja?.nome || "IVIMPORTS", osId: o.id, numero: o.numero, aparelho: o.aparelho, defeito: o.defeito, valor: o.valor || 0, cliente: (o.cliente||"").split(" ")[0], garantia: S.loja?.garantia || "", status: "pendente", processado: false, criadoEm: serverTimestamp() });
+    const mudar = ["recebido","analise"].includes(o.status) ? { status:"aprovacao", "historico.aprovacao": serverTimestamp() } : {};
+    await updateDoc(doc(col("os"), o.id), { aprovacao: { token: tok, status: "pendente", enviadoEm: Timestamp.now() }, ...mudar, eventos: evento("Orçamento enviado para aprovação") });
+    logar("Orçamento enviado para aprovação", numOS(o), brl(o.valor));
+    const link = location.origin + location.pathname + "?aprovar=" + tok;
+    const msg = `Olá, ${(o.cliente||"").split(" ")[0]}! Aqui é da ${S.loja?.nome || "IVIMPORTS"}. O orçamento do seu ${o.aparelho} (OS ${numOS(o)}) ficou em ${brl(o.valor)}. Para aprovar ou recusar, toque no link: ${link}`;
+    const url = `https://wa.me/55${soDigitos(o.telefone)}?text=${encodeURIComponent(msg)}`;
+    if(janela) janela.location = url; else location.href = url;
+  } catch(err){ if(janela) janela.close(); throw err; }
+}
+async function processarAprovacoes(docs){
+  for(const d of docs){
+    const a = d.data(); if(a.status === "pendente") continue;
+    try {
+      await runTransaction(db, async tx => {
+        const apRef = doc(db, "aprovacoes", d.id), osRef = doc(col("os"), a.osId);
+        const [sa, so] = await Promise.all([tx.get(apRef), tx.get(osRef)]);
+        if(!sa.exists() || sa.data().processado) return;
+        tx.update(apRef, { processado: true });
+        if(!so.exists()) return;
+        const o = so.data();
+        const upd = { "aprovacao.status": a.status, "aprovacao.respondidoEm": a.respondidoEm || Timestamp.now(), eventos: arrayUnion({ quando: Timestamp.now(), por: "cliente (link)", acao: a.status === "aprovado" ? "Orçamento aprovado pelo cliente" : "Orçamento recusado pelo cliente" }) };
+        if(a.status === "aprovado" && ["recebido","analise","aprovacao"].includes(o.status)){ upd.status = "reparo"; upd["historico.reparo"] = serverTimestamp(); }
+        tx.update(osRef, upd);
+      });
+      toast(`OS #${String(a.numero).padStart(4,"0")}: orçamento ${a.status} pelo cliente`);
+      logar(a.status === "aprovado" ? "Orçamento aprovado pelo cliente" : "Orçamento recusado pelo cliente", "#" + String(a.numero).padStart(4,"0"), brl(a.valor));
+    } catch(e){ console.warn(e); }
+  }
+}
+async function telaAprovacao(tok){
+  ["#login","#app","#bloqueio"].forEach(s => $(s).classList.add("hide"));
+  const box = $("#publico"); box.classList.remove("hide");
+  const pinta = (html) => box.innerHTML = `<div class="card" style="width:min(460px,100%);display:flex;flex-direction:column;gap:16px"><div class="logo"><span class="sq">IV</span><b id="pub-loja">IVIMPORTS</b></div>${html}</div>`;
+  pinta(`<span class="muted">Carregando orçamento…</span>`);
+  let a;
+  try { const s = await getDoc(doc(db, "aprovacoes", tok)); if(!s.exists()) throw 0; a = s.data(); }
+  catch(e){ pinta(`<h2>Link inválido</h2><p class="muted" style="margin:0">Este orçamento não foi encontrado. Fale com a loja.</p>`); return; }
+  const corpo = () => `<div><div class="kicker">Orçamento · OS #${String(a.numero).padStart(4,"0")}</div><h2 style="font-size:28px;margin-top:4px">Olá, ${esc(a.cliente)}!</h2></div>
+    <div class="infos"><div><span>Aparelho</span>${esc(a.aparelho)}</div><div><span>Serviço</span>${esc(a.defeito)}</div><div style="grid-column:1/-1"><span>Valor</span><b style="font-size:26px">${brl(a.valor)}</b></div></div>
+    ${a.garantia ? `<span class="muted" style="font-size:13px">${esc(a.garantia)}.</span>` : ""}`;
+  const desenhar = () => {
+    if(a.status === "pendente") pinta(corpo() + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn" id="pub-recusar" style="padding:13px">Recusar</button><button class="btn btn-primary" id="pub-aprovar" style="padding:13px">Aprovar orçamento</button></div><span class="muted" style="font-size:12px">Ao aprovar, a loja inicia o reparo.</span>`);
+    else pinta(corpo() + `<div class="msg ${a.status === "aprovado" ? "ok" : "err"}">${a.status === "aprovado" ? "Orçamento aprovado. Obrigado! A loja já foi avisada e vai iniciar o reparo." : "Orçamento recusado. A loja foi avisada; você pode retirar o aparelho."}</div>`);
+    $("#pub-loja").textContent = a.lojaNome || "IVIMPORTS";
+    const responder = async status => {
+      if(status === "recusado" && !confirm("Recusar o orçamento?")) return;
+      try { await updateDoc(doc(db, "aprovacoes", tok), { status, respondidoEm: serverTimestamp() }); a.status = status; desenhar(); }
+      catch(e){ alert("Não foi possível registrar. Tente novamente ou fale com a loja."); }
+    };
+    $("#pub-aprovar")?.addEventListener("click", () => responder("aprovado"));
+    $("#pub-recusar")?.addEventListener("click", () => responder("recusado"));
+  };
+  desenhar();
+}
+
+/* ---------- garantia (6) ---------- */
+function blocoGarantia(o){
+  if(o.status !== "entregue") return "";
+  const ate = toDate(o.garantiaAte); const vig = ate && ate.getTime() >= Date.now();
+  return `<div style="display:flex;flex-direction:column;gap:8px"><div class="kicker" style="color:var(--cinza)">Garantia</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${ate ? `<span class="tag ${vig ? "t-verde" : "t-neutra"}">${vig ? "Vigente até" : "Venceu em"} ${fmtDataLonga(ate)}</span>` : `<span class="tag t-neutra">Sem prazo registrado</span>`}
+    <button class="btn btn-sm" data-a="termo-garantia">Termo de garantia</button><button class="btn btn-sm" data-a="retorno-garantia">Abrir retorno em garantia</button></div></div>`;
+}
+function imprimirTermo(o){
+  const w = window.open("", "_blank"); if(!w) return;
+  const pecas = (o.pecas||[]).map(p => `${p.qtd}× ${esc(p.nome)}`).join(", ") || "—";
+  w.document.write(`<html><head><title>Termo de garantia OS ${o.numero}</title><style>body{font-family:Arial,sans-serif;padding:28px;max-width:720px;margin:auto;color:#111;font-size:14px;line-height:1.5}h1{margin:0;font-size:24px}table{width:100%;border-collapse:collapse;margin:14px 0}td{border:1px solid #ccc;padding:8px}td b{display:block;font-size:11px;color:#666;font-weight:normal}li{margin:3px 0}.ass{margin-top:56px;display:flex;gap:40px}.ass div{flex:1;border-top:1px solid #111;padding-top:6px;font-size:12px;text-align:center}</style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:4px solid #ffc400;padding-bottom:10px"><div><h1>${esc(S.loja?.nome||"IVIMPORTS")}</h1><div>${esc(S.loja?.endereco||"")}</div></div><div style="text-align:right"><div>Termo de garantia</div><h1>OS #${String(o.numero).padStart(4,"0")}</h1></div></div>
+  <table><tr><td><b>Cliente</b>${esc(o.cliente)}</td><td><b>WhatsApp</b>${esc(o.telefone||"")}</td></tr><tr><td><b>Aparelho</b>${esc(o.aparelho)}</td><td><b>IMEI / série</b>${esc(o.imei||"")}</td></tr><tr><td colspan="2"><b>Serviço executado</b>${esc(o.defeito)}</td></tr><tr><td colspan="2"><b>Peças substituídas</b>${pecas}</td></tr><tr><td><b>Valor</b>${brl(o.valor)}</td><td><b>Entregue em</b>${fmtDataLonga(o.entregueEm)}</td></tr><tr><td colspan="2"><b>Garantia válida até</b><span style="font-size:18px;font-weight:bold">${fmtDataLonga(o.garantiaAte)}</span> (${S.loja?.garantiaDias ?? 90} dias)</td></tr></table>
+  <p><b>A garantia cobre</b> o serviço executado e as peças substituídas nesta ordem de serviço.</p>
+  <p><b>A garantia não cobre:</b></p><ul><li>quedas, pancadas, trincas ou pressão no aparelho após a entrega;</li><li>contato com líquidos ou umidade;</li><li>lacre de garantia rompido ou aparelho aberto por terceiros;</li><li>defeitos diferentes do serviço executado.</li></ul>
+  <p>Para usar a garantia, apresente este termo ou informe o número da OS.</p>
+  <div class="ass"><div>Assinatura do cliente</div><div>${esc(S.loja?.nome||"IVIMPORTS")}</div></div>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+/* ---------- impressão térmica 80 mm (7) ---------- */
+function janela80(titulo, corpo){
+  const w = window.open("", "_blank", "width=420,height=700"); if(!w) return;
+  w.document.write(`<html><head><title>${esc(titulo)}</title><style>@page{size:80mm auto;margin:3mm}body{width:72mm;margin:0 auto;font-family:"Courier New",monospace;font-size:12px;color:#000;line-height:1.35}.c{text-align:center}.b{font-weight:bold}h1{font-size:16px;margin:0}hr{border:0;border-top:1px dashed #000;margin:6px 0}table{width:100%;border-collapse:collapse}td{vertical-align:top;padding:1px 0}td.r{text-align:right;white-space:nowrap}.ass{margin-top:34px;border-top:1px solid #000;text-align:center;font-size:11px;padding-top:3px}</style></head><body>
+  <div class="c"><h1>${esc(S.loja?.nome||"IVIMPORTS")}</h1><div>${esc(S.loja?.endereco||"")}</div></div><hr>${corpo}<hr><div class="c" style="font-size:10px">Documento sem valor fiscal · ${new Date().toLocaleString("pt-BR")}</div>
+  <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>`);
+  w.document.close();
+}
+function imprimir80OS(o){
+  const entregue = o.status === "entregue";
+  const pecas = (o.pecas||[]).map(p => `<tr><td>${p.qtd}x ${esc(p.nome)}</td></tr>`).join("");
+  janela80(`OS ${o.numero}`, `<div class="c b">${entregue ? "RECIBO DE SERVIÇO" : "COMPROVANTE DE ENTRADA"}</div><div class="c b" style="font-size:16px">OS #${String(o.numero).padStart(4,"0")}</div><hr>
+  <table><tr><td>Cliente:</td><td class="r">${esc(o.cliente)}</td></tr><tr><td>Fone:</td><td class="r">${esc(o.telefone||"")}</td></tr><tr><td>Aparelho:</td><td class="r">${esc(o.aparelho)}</td></tr>${o.imei?`<tr><td>IMEI:</td><td class="r">${esc(o.imei)}</td></tr>`:""}</table>
+  <div>Defeito/serviço: ${esc(o.defeito)}</div>${!entregue && o.obs ? `<div>Obs.: ${esc(o.obs)}</div>` : ""}${entregue && pecas ? `<hr><div class="b">Peças</div><table>${pecas}</table>` : ""}<hr>
+  <table><tr><td class="b">VALOR</td><td class="r b" style="font-size:15px">${brl(o.valor)}</td></tr>${entregue ? `<tr><td>Pago em:</td><td class="r">${esc(o.formaPagamento||"")}</td></tr><tr><td>Entregue:</td><td class="r">${fmtDataLonga(o.entregueEm)}</td></tr><tr><td class="b">Garantia até:</td><td class="r b">${fmtDataLonga(o.garantiaAte)}</td></tr>` : `<tr><td>Entrada:</td><td class="r">${fmtHora(o.criadoEm)}</td></tr><tr><td>Previsão:</td><td class="r">${o.prazo ? fmtDataLonga(o.prazo) : "—"}</td></tr>`}</table>
+  ${entregue ? `<div style="font-size:11px;margin-top:4px">Garantia do serviço e das peças trocadas. Não cobre queda, líquido ou lacre rompido.</div>` : `<div style="font-size:11px;margin-top:4px">Apresente este comprovante na retirada.</div>`}
+  <div class="ass">Assinatura do cliente</div>`);
+}
+function imprimir80Venda(v){
+  if(!v) return;
+  janela80("Recibo de venda", `<div class="c b">RECIBO DE VENDA</div><div class="c">${v.data.toLocaleString("pt-BR")}</div><hr>
+  <table>${v.itens.map(i => `<tr><td>${i.qtd}x ${esc(i.nome)}</td><td class="r">${brl(i.preco*i.qtd)}</td></tr>`).join("")}</table><hr>
+  <table><tr><td class="b">TOTAL</td><td class="r b" style="font-size:15px">${brl(v.total)}</td></tr><tr><td>Pagamento:</td><td class="r">${esc(v.forma)}</td></tr><tr><td>Cliente:</td><td class="r">${esc(v.cliente)}</td></tr></table>
+  <div class="c" style="margin-top:6px">Obrigado pela preferência!</div>`);
+}
+
+/* ---------- caixa do dia (8) ---------- */
+function resumoCaixa(){
+  const hoje = new Date(); const doDia = S.lanc.filter(l => mesmoDia(toDate(l.data), hoje));
+  const porForma = {}; doDia.filter(l => l.valor > 0).forEach(l => porForma[l.forma||"Outro"] = (porForma[l.forma||"Outro"]||0) + l.valor);
+  const movDinheiro = doDia.filter(l => l.forma === "Dinheiro").reduce((s,l) => s + l.valor, 0);
+  const sangrias = (S.caixa?.sangrias||[]).reduce((s,x) => s + (x.valor||0), 0);
+  return { porForma, movDinheiro, sangrias, esperado: (S.caixa?.saldoInicial||0) + movDinheiro - sangrias };
+}
+function blocoCaixa(){
+  const c = S.caixa;
+  if(!c) return `<div class="card" style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:20px">Caixa de hoje</h3><p class="muted" style="margin:0;font-size:14px">Caixa ainda não aberto. Informe o dinheiro que está na gaveta para começar o dia.</p><form id="f-abrir-caixa" style="display:flex;gap:8px"><input class="input" name="saldo" inputmode="decimal" placeholder="Troco inicial (R$)" required><button class="btn btn-primary">Abrir caixa</button></form></div>`;
+  const r = resumoCaixa();
+  const linhas = Object.entries(r.porForma).map(([f,v]) => `<div class="lista-linha"><span>Entradas em ${esc(f)}</span><b>${brl(v)}</b></div>`).join("");
+  return `<div class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h3 style="font-size:20px">Caixa de hoje</h3>${c.fechado ? `<span class="tag t-neutra">Fechado</span>` : `<span class="tag t-verde">Aberto</span>`}</div>
+    <div class="lista-linha"><span>Troco inicial</span><b>${brl(c.saldoInicial)}</b></div>${linhas}
+    ${(c.sangrias||[]).map(x => `<div class="lista-linha"><span class="muted">Sangria ${fmtHora(x.quando)}${x.motivo?" · "+esc(x.motivo):""}</span><b style="color:var(--vermelho)">− ${brl(x.valor)}</b></div>`).join("")}
+    <div class="lista-linha"><span><b>Dinheiro esperado na gaveta</b></span><b style="font-size:18px">${brl(r.esperado)}</b></div>
+    ${c.fechado ? `<div class="lista-linha"><span>Contado no fechamento</span><b>${brl(c.contadoDinheiro)}</b></div><div class="lista-linha"><span>Diferença</span><b style="color:${Math.abs(c.diferenca||0) < 0.01 ? "var(--verde)" : "var(--vermelho)"}">${brl(c.diferenca)}</b></div><div><button class="btn btn-sm btn-ghost" data-a="reabrir-caixa">Reabrir caixa</button></div>`
+      : `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-a="sangria">Sangria</button><button class="btn btn-dark" data-a="fechar-caixa">Fechar caixa</button></div>`}
+  </div>`;
+}
+
+/* ---------- contas a pagar (12) ---------- */
+function situacaoConta(c){
+  const d = toDate(c.vencimento); const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const dias = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - hoje) / 864e5);
+  return dias < 0 ? { tag:"t-vermelha", txt:`Vencida há ${-dias} dia${dias===-1?"":"s"}`, dias } : dias === 0 ? { tag:"t-amarela", txt:"Vence hoje", dias } : { tag:"t-neutra", txt: dias === 1 ? "Vence amanhã" : `Vence em ${dias} dias`, dias };
+}
+function alertaContas(){
+  if(!isDono()) return "";
+  const urg = (S.contas||[]).filter(c => !c.pago && situacaoConta(c).dias <= 0);
+  if(!urg.length) return "";
+  const total = urg.reduce((s,c) => s + (c.valor||0), 0);
+  return `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--vermelho-claro);border-color:#f5c6c0;padding:14px 18px"><span><b>${urg.length} conta${urg.length>1?"s":""} vencendo hoje ou vencida${urg.length>1?"s":""}</b> <span class="muted">· ${brl(total)}</span></span><button class="btn btn-sm btn-dark" data-a="ir" data-v="financeiro">Ver contas</button></div>`;
+}
+function blocoContas(){
+  const pend = (S.contas||[]).filter(c => !c.pago).sort((a,b) => toDate(a.vencimento) - toDate(b.vencimento));
+  const fimMes = new Date(); fimMes.setMonth(fimMes.getMonth()+1, 0); fimMes.setHours(23,59,59);
+  const noMes = pend.filter(c => toDate(c.vencimento) <= fimMes).reduce((s,c) => s + (c.valor||0), 0);
+  return `<div class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h3 style="font-size:20px">Contas a pagar</h3><span class="muted" style="font-size:13px">Até o fim do mês: <b style="color:var(--texto)">${brl(noMes)}</b></span></div>
+    ${pend.slice(0,8).map(c => { const s = situacaoConta(c); return `<div class="lista-linha"><span style="display:flex;flex-direction:column;gap:2px"><b>${esc(c.descricao)}</b><span class="muted" style="font-size:12px">${fmtDataLonga(c.vencimento)}${c.fornecedor?" · "+esc(c.fornecedor):""}${c.recorrente?" · mensal":""}</span></span><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><span class="tag ${s.tag}">${s.txt}</span><b>${brl(c.valor)}</b><button class="btn btn-sm btn-primary" data-a="pagar-conta" data-id="${c.id}">Pagar</button><button class="btn btn-sm btn-ghost btn-danger" data-a="del-conta" data-id="${c.id}" title="Excluir">×</button></span></div>`; }).join("") || `<span class="muted" style="font-size:14px">Nenhuma conta pendente.</span>`}
+    ${pend.length > 8 ? `<span class="muted" style="font-size:12px">+ ${pend.length-8} conta(s) mais adiante.</span>` : ""}</div>`;
+}
+function formConta(){
+  return `<h2 style="font-size:24px">Nova conta a pagar</h2><form id="f-conta" class="grid2">
+    <label class="f span2">Descrição<input class="input" name="descricao" required placeholder="Ex.: Aluguel da loja, DAS, fornecedor de telas"></label>
+    <label class="f">Fornecedor<input class="input" name="fornecedor" placeholder="opcional"></label>
+    <label class="f">Valor (R$)<input class="input" name="valor" required inputmode="decimal"></label>
+    <label class="f">Vencimento<input class="input" type="date" name="vencimento" required value="${new Date().toISOString().slice(0,10)}"></label>
+    <label class="f">Categoria<input class="input" name="categoria" list="cats-conta" placeholder="Despesa fixa"><datalist id="cats-conta"><option>Despesa fixa</option><option>Compra de peças</option><option>Impostos</option><option>Pessoal</option><option>Serviços</option></datalist></label>
+    <label class="span2" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="recorrente"> Repete todo mês (ao pagar, já agenda o próximo)</label>
+    <div class="acoes span2"><button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">Salvar</button></div></form>`;
+}
+function formPagarConta(c){
+  return `<h2 style="font-size:24px">Pagar conta</h2><p class="muted" style="margin:0">${esc(c.descricao)} · vence ${fmtDataLonga(c.vencimento)}. O pagamento entra como saída no financeiro.</p>
+  <form id="f-pagar-conta" class="grid2" data-id="${c.id}"><label class="f">Valor pago (R$)<input class="input" name="valor" inputmode="decimal" value="${String(c.valor).replace(".",",")}"></label><label class="f">Data do pagamento<input class="input" type="date" name="data" value="${new Date().toISOString().slice(0,10)}"></label>
+  <label class="f span2">Forma<select class="input" name="forma"><option>Pix</option><option>Boleto</option><option>Transferência</option><option>Dinheiro</option><option>Cartão</option></select></label>
+  <div class="acoes span2"><button type="button" class="btn" data-a="fechar-modal">Cancelar</button><button class="btn btn-primary">Confirmar pagamento</button></div></form>`;
+}
+
+/* ---------- fechamento mensal para a contabilidade (10) ---------- */
+const TIPO_NOME = { servico:"Prestação de serviços", mercadoria:"Venda de mercadorias", outra:"Outras entradas (não operacionais)" };
+function classifica(l){
+  if(l.tipoReceita) return l.tipoReceita;
+  if(l.origem === "os") return "servico";
+  if(l.origem === "pdv") return "mercadoria";
+  if(/servi/i.test(l.categoria||"")) return "servico";
+  if(/acess|mercad|produt|venda/i.test(l.categoria||"")) return "mercadoria";
+  return "outra";
+}
+function dadosContabil(mes){
+  const [a, m] = mes.split("-").map(Number);
+  const lista = S.lanc.filter(l => { const d = toDate(l.data); return d && d.getFullYear() === a && d.getMonth()+1 === m; }).sort((x,y) => toDate(x.data) - toDate(y.data));
+  const rec = { servico:0, mercadoria:0, outra:0 }, saidas = {}, formas = {};
+  lista.forEach(l => { if(l.valor > 0){ rec[classifica(l)] += l.valor; formas[l.forma||"Outro"] = (formas[l.forma||"Outro"]||0) + l.valor; } else { const k = l.categoria || "Sem categoria"; saidas[k] = (saidas[k]||0) - l.valor; } });
+  const os = S.os.filter(o => { const d = toDate(o.entregueEm); return o.status === "entregue" && d && d.getFullYear() === a && d.getMonth()+1 === m; }).length;
+  const vendas = lista.filter(l => l.origem === "pdv").length;
+  const totSaidas = Object.values(saidas).reduce((s,v) => s+v, 0);
+  return { lista, rec, saidas, formas, os, vendas, totSaidas, faturamento: rec.servico + rec.mercadoria };
+}
+function blocoContabil(){
+  const meses = []; for(let i=0;i<12;i++){ const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-i); meses.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); }
+  const nomeMes = k => { const [a,m] = k.split("-"); return new Date(a, m-1, 1).toLocaleDateString("pt-BR", {month:"long", year:"numeric"}); };
+  const r = dadosContabil(S.mesRel);
+  return `<div class="card" style="display:flex;flex-direction:column;gap:12px;grid-column:1/-1"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><h3 style="font-size:20px">Fechamento mensal para a contabilidade</h3><span class="muted" style="font-size:13px">Receita separada entre serviço e mercadoria, para a apuração do Simples Nacional.</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="mes-rel" style="width:auto">${meses.map(k => `<option value="${k}" ${k===S.mesRel?"selected":""}>${nomeMes(k)}</option>`).join("")}</select><button class="btn" data-a="csv-contabil">Baixar planilha</button><button class="btn btn-dark" data-a="imprimir-contabil">Imprimir / PDF</button></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:20px">
+      <table><thead><tr><th>Receitas do mês</th><th class="num">R$</th></tr></thead><tbody><tr><td>${TIPO_NOME.servico}</td><td class="num">${brl(r.rec.servico)}</td></tr><tr><td>${TIPO_NOME.mercadoria}</td><td class="num">${brl(r.rec.mercadoria)}</td></tr><tr><td><b>Faturamento (serviços + mercadorias)</b></td><td class="num"><b>${brl(r.faturamento)}</b></td></tr><tr><td class="muted">${TIPO_NOME.outra}</td><td class="num muted">${brl(r.rec.outra)}</td></tr></tbody></table>
+      <table><thead><tr><th>Saídas por categoria</th><th class="num">R$</th></tr></thead><tbody>${Object.entries(r.saidas).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<tr><td>${esc(k)}</td><td class="num">${brl(v)}</td></tr>`).join("") || `<tr><td class="muted">Sem saídas</td><td></td></tr>`}<tr><td><b>Total de saídas</b></td><td class="num"><b>${brl(r.totSaidas)}</b></td></tr></tbody></table>
+      <table><thead><tr><th>Recebimentos por forma</th><th class="num">R$</th></tr></thead><tbody>${Object.entries(r.formas).map(([k,v]) => `<tr><td>${esc(k)}</td><td class="num">${brl(v)}</td></tr>`).join("") || `<tr><td class="muted">Sem entradas</td><td></td></tr>`}<tr><td>OS entregues · vendas no balcão</td><td class="num">${r.os} · ${r.vendas}</td></tr></tbody></table>
+    </div></div>`;
+}
+function baixarCSVContabil(){
+  const r = dadosContabil(S.mesRel);
+  const n = v => Number(v||0).toFixed(2).replace(".", ",");
+  const linhas = [["Data","Descrição","Tipo","Categoria","Forma","Valor (R$)"], ...r.lista.map(l => [fmtDataLonga(l.data), l.descricao||"", l.valor > 0 ? TIPO_NOME[classifica(l)] : "Saída", l.categoria||"", l.forma||"", n(l.valor)]),
+    [], ["Resumo"], [TIPO_NOME.servico, n(r.rec.servico)], [TIPO_NOME.mercadoria, n(r.rec.mercadoria)], ["Faturamento", n(r.faturamento)], [TIPO_NOME.outra, n(r.rec.outra)], ["Total de saídas", n(r.totSaidas)]];
+  const csv = "\ufeff" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g,'""')}"`).join(";")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"})); a.download = `fechamento-${LOJA}-${S.mesRel}.csv`; a.click();
+  logar("Fechamento contábil baixado", S.mesRel);
+}
+function imprimirContabil(){
+  const r = dadosContabil(S.mesRel); const [a,m] = S.mesRel.split("-");
+  const nome = new Date(a, m-1, 1).toLocaleDateString("pt-BR", {month:"long", year:"numeric"});
+  const w = window.open("", "_blank"); if(!w) return;
+  const tab = (tit, rows) => `<h3>${tit}</h3><table>${rows.map(([k,v,b]) => `<tr${b?' style="font-weight:bold"':""}><td>${esc(k)}</td><td class="r">${v}</td></tr>`).join("")}</table>`;
+  w.document.write(`<html><head><title>Fechamento ${S.mesRel}</title><style>body{font-family:Arial,sans-serif;padding:28px;max-width:760px;margin:auto;color:#111;font-size:13px}h1{margin:0;font-size:22px}h3{margin:18px 0 6px;font-size:15px}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:5px 4px}td.r{text-align:right;white-space:nowrap}.mini td{font-size:11px}</style></head><body>
+  <div style="border-bottom:4px solid #ffc400;padding-bottom:10px"><h1>${esc(S.loja?.nome||"IVIMPORTS")} · Fechamento de ${nome}</h1><div>${esc(S.loja?.endereco||"")} · gerado em ${new Date().toLocaleString("pt-BR")} por ${esc(meuEmail())}</div></div>
+  ${tab("Receitas", [[TIPO_NOME.servico, brl(r.rec.servico)], [TIPO_NOME.mercadoria, brl(r.rec.mercadoria)], ["Faturamento (serviços + mercadorias)", brl(r.faturamento), 1], [TIPO_NOME.outra, brl(r.rec.outra)]])}
+  ${tab("Saídas por categoria", [...Object.entries(r.saidas).map(([k,v]) => [k, brl(v)]), ["Total de saídas", brl(r.totSaidas), 1]])}
+  ${tab("Recebimentos por forma", Object.entries(r.formas).map(([k,v]) => [k, brl(v)]))}
+  <p>OS entregues no mês: <b>${r.os}</b> · Vendas no balcão: <b>${r.vendas}</b></p>
+  <h3>Lançamentos do mês</h3><table class="mini">${r.lista.map(l => `<tr><td>${fmtDataLonga(l.data)}</td><td>${esc(l.descricao)}</td><td>${l.valor>0 ? TIPO_NOME[classifica(l)] : esc(l.categoria||"Saída")}</td><td>${esc(l.forma||"")}</td><td class="r">${brl(l.valor)}</td></tr>`).join("")}</table>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close(); logar("Fechamento contábil impresso", S.mesRel);
+}
+
+/* ---------- fotos de entrada (9) ---------- */
+function blocoFotos(o){
+  const fotos = S.fotos[o.id];
+  if(fotos === undefined && !S.fotosPedidas?.[o.id]){ S.fotosPedidas = { ...(S.fotosPedidas||{}), [o.id]: true }; setTimeout(() => carregarFotos(o.id), 0); }
+  return `<div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div class="kicker" style="color:var(--cinza)">Fotos do aparelho</div><label class="btn btn-sm" style="cursor:pointer">+ Foto<input type="file" id="foto-input" accept="image/*" capture="environment" multiple hidden></label></div>
+    ${fotos === undefined ? `<span class="muted" style="font-size:13px">Carregando fotos…</span>` : fotos.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${fotos.map(f => `<div style="position:relative"><img src="${f.data}" data-a="ver-foto" data-id="${f.id}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:pointer;border:1px solid var(--linha)">${isDono() ? `<button class="btn btn-sm" data-a="del-foto" data-id="${f.id}" style="position:absolute;top:4px;right:4px;padding:0 7px;min-height:0">×</button>` : ""}</div>`).join("")}</div>` : `<span class="muted" style="font-size:13px">Sem fotos. Registre o estado do aparelho na entrada (riscos, tela, carcaça).</span>`}</div>`;
+}
+async function carregarFotos(osId){
+  if(!osId) return;
+  try {
+    const snap = await getDocs(query(col("fotos"), where("osId", "==", osId)));
+    S.fotos[osId] = snap.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b) => (toDate(a.criadoEm)||0) - (toDate(b.criadoEm)||0));
+  } catch(e){ console.warn(e); S.fotos[osId] = []; }
+  if(S.sel === osId) renderCamada();
+}
+async function comprimir(arquivo){
+  const img = await createImageBitmap(arquivo);
+  const esc2 = Math.min(1, 1280 / Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width = Math.round(img.width*esc2); c.height = Math.round(img.height*esc2);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  let q = 0.72, url = c.toDataURL("image/jpeg", q);
+  while(url.length > 700000 && q > 0.3){ q -= 0.12; url = c.toDataURL("image/jpeg", q); }
+  return url;
+}
+async function adicionarFotos(arquivos){
+  const osId = S.sel; if(!osId) return;
+  toast(`Enviando ${arquivos.length} foto(s)…`);
+  try {
+    for(const f of arquivos){ const data = await comprimir(f); await addDoc(col("fotos"), { osId, data, criadoEm: serverTimestamp(), por: meuEmail() }); }
+    await updateDoc(doc(col("os"), osId), { qtdFotos: increment(arquivos.length), eventos: evento(`${arquivos.length} foto(s) adicionada(s)`) });
+    logar("Fotos adicionadas", numOS(S.os.find(x => x.id === osId)), `${arquivos.length} foto(s)`);
+    toast("Fotos salvas");
+  } catch(e){ console.error(e); toast(traduz(e)); }
+  carregarFotos(osId);
+}
+function verFoto(id){
+  const f = (S.fotos[S.sel]||[]).find(x => x.id === id); if(!f) return;
+  MODAL = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="muted">${fmtHora(f.criadoEm)} · ${esc(f.por||"")}</span><button class="btn btn-sm" data-a="fechar-modal">×</button></div><img src="${f.data}" style="width:100%;border-radius:12px">`;
+  renderCamada();
 }
 
 /* ---------- backup ---------- */
@@ -853,7 +1217,7 @@ async function backupDrive(btn){
     const l = await gapi(token, `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&fields=files(id)&pageSize=200`);
     for(const f of (l.files||[]).slice(MANTER_BACKUPS)) await gapi(token, `https://www.googleapis.com/drive/v3/files/${f.id}`, { method:"DELETE" });
     await updateDoc(lojaRef, { backup: { conta: info.email || "", ultimo: serverTimestamp(), por: S.user.email, tamanhoKB: Math.round(corpo.length/1024) } });
-    toast("Backup salvo no Google Drive ✓");
+    logar("Backup no Google Drive", info.email || ""); toast("Backup salvo no Google Drive ✓");
   } catch(err){ console.error(err); toast(err.message || traduz(err)); }
   if(btn) btn.disabled = false;
 }
@@ -892,11 +1256,13 @@ async function aplicarRestauracao(b){
   }
   for(let i=0;i<ops.length;i+=400){ const bt = writeBatch(db); ops.slice(i,i+400).forEach(([o,c,id,d]) => o==="del" ? bt.delete(doc(col(c), id)) : bt.set(doc(col(c), id), d)); await bt.commit(); }
   await updateDoc(lojaRef, { proximaOS: Math.max(b.proximaOS||1, ...(b.dados.os||[]).map(o => (o.numero||0)+1)) });
-  toast(`Backup restaurado (${ops.length} registros) ✓`);
+  logar("Backup restaurado", b.geradoEm || ""); toast(`Backup restaurado (${ops.length} registros) ✓`);
 }
 document.addEventListener("change", async e => {
+  if(e.target.id === "foto-input" && e.target.files.length){ await adicionarFotos([...e.target.files]); e.target.value = ""; return; }
+  if(e.target.id === "mes-rel"){ S.mesRel = e.target.value; render(); return; }
   const em = e.target.dataset?.perfil; if(!em) return;
-  try { await updateDoc(lojaRef, { perfis: { ...(S.loja.perfis||{}), [em]: e.target.value } }); toast("Perfil atualizado"); } catch(err){ toast(traduz(err)); }
+  try { await updateDoc(lojaRef, { perfis: { ...(S.loja.perfis||{}), [em]: e.target.value } }); logar("Perfil alterado", em, e.target.value); toast("Perfil atualizado"); } catch(err){ toast(traduz(err)); }
 });
 document.addEventListener("change", async e => {
   if(e.target.id !== "arquivo-restaurar" || !e.target.files[0]) return;
